@@ -115,7 +115,7 @@ const Index = () => {
                 Monitor your data removal requests and overall progress
               </p>
             </div>
-            <Dashboard requests={requests} />
+            <Dashboard requests={requests} onTabChange={setActiveTab} />
           </>
         );
         

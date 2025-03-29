@@ -7,12 +7,16 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { DataRequest } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardProps {
   requests: DataRequest[];
+  onTabChange?: (tab: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ requests }) => {
+const Dashboard: React.FC<DashboardProps> = ({ requests, onTabChange }) => {
+  const navigate = useNavigate();
+  
   // Calculate statistics
   const totalRequests = requests.length;
   const pendingRequests = requests.filter(r => r.status === 'pending').length;
@@ -30,6 +34,18 @@ const Dashboard: React.FC<DashboardProps> = ({ requests }) => {
     { name: 'Completed', value: completedRequests, color: '#8B5CF6' },
   ].filter(item => item.value > 0);
   
+  const handleFindBrokers = () => {
+    if (onTabChange) {
+      onTabChange('find-brokers');
+    }
+  };
+  
+  const handleCreateRequest = () => {
+    if (onTabChange) {
+      onTabChange('new-request');
+    }
+  };
+  
   // We'll show empty states when no data is available
   if (totalRequests === 0) {
     return (
@@ -46,11 +62,18 @@ const Dashboard: React.FC<DashboardProps> = ({ requests }) => {
                 that might have your information or create a new request directly.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
-                <Button variant="outline" className="flex items-center gap-2" onClick={() => window.location.hash = 'find-brokers'}>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2" 
+                  onClick={handleFindBrokers}
+                >
                   <PlusCircle className="h-4 w-4" />
                   Find Data Brokers
                 </Button>
-                <Button className="flex items-center gap-2" onClick={() => window.location.hash = 'new-request'}>
+                <Button 
+                  className="flex items-center gap-2" 
+                  onClick={handleCreateRequest}
+                >
                   <PlusCircle className="h-4 w-4" />
                   Create New Request
                 </Button>
