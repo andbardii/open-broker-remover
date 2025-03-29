@@ -1,3 +1,4 @@
+
 import { DataRequest, DataBroker } from './types';
 
 // This is a mock implementation of SQLite for the frontend
@@ -7,7 +8,7 @@ class DatabaseService {
   private dataBrokers: DataBroker[] = [];
 
   constructor() {
-    // Initialize with real data broker information but no requests
+    // Real data broker information
     this.dataBrokers = [
       { id: '1', name: 'Acxiom', optOutUrl: 'https://www.acxiom.com/optout/' },
       { id: '2', name: 'BeenVerified', optOutUrl: 'https://www.beenverified.com/app/optout/search' },
@@ -48,7 +49,38 @@ class DatabaseService {
       { id: '37', name: 'GoLookUp', optOutUrl: 'https://golookup.com/optout' },
       { id: '38', name: 'Homemetry', optOutUrl: 'https://homemetry.com/optout' },
       { id: '39', name: 'Innovis', optOutUrl: 'https://www.innovis.com/personal/optout' },
-      { id: '40', name: 'IdTrue', optOutUrl: 'https://www.idtrue.com/optout' }
+      { id: '40', name: 'IdTrue', optOutUrl: 'https://www.idtrue.com/optout' },
+      // Adding new data brokers
+      { id: '41', name: 'Equifax', optOutUrl: 'https://www.equifax.com/personal/privacy/' },
+      { id: '42', name: 'Experian', optOutUrl: 'https://www.experian.com/privacy/center.html' },
+      { id: '43', name: 'TransUnion', optOutUrl: 'https://www.transunion.com/consumer-privacy' },
+      { id: '44', name: 'Oracle', optOutUrl: 'https://www.oracle.com/legal/privacy/marketing-opt-out.html' },
+      { id: '45', name: 'PeekYou', optOutUrl: 'https://www.peekyou.com/about/contact/' },
+      { id: '46', name: 'Tapad', optOutUrl: 'https://www.tapad.com/privacy-policy' },
+      { id: '47', name: 'TowerData', optOutUrl: 'https://www.towerdata.com/privacy-policy' },
+      { id: '48', name: 'Clearview AI', optOutUrl: 'https://clearview.ai/privacy-policy' },
+      { id: '49', name: 'Mobilewalla', optOutUrl: 'https://www.mobilewalla.com/privacy-policy' },
+      { id: '50', name: 'Gravy Analytics', optOutUrl: 'https://gravyanalytics.com/privacy/' },
+      { id: '51', name: 'Social Catfish', optOutUrl: 'https://socialcatfish.com/opt-out/' },
+      { id: '52', name: 'SpyFly', optOutUrl: 'https://www.spyfly.com/opt-out' },
+      { id: '53', name: 'That\'s Them', optOutUrl: 'https://thatsthem.com/opt-out' },
+      { id: '54', name: 'TruePeopleSearch', optOutUrl: 'https://www.truepeoplesearch.com/removal' },
+      { id: '55', name: 'United States Phone Book', optOutUrl: 'https://www.usphonebook.com/opt-out' },
+      { id: '56', name: 'USA People Search', optOutUrl: 'https://www.usa-people-search.com/manage/optout' },
+      { id: '57', name: 'USA-Official', optOutUrl: 'https://www.usa-official.com/optout' },
+      { id: '58', name: 'Vericora', optOutUrl: 'https://vericora.com/opt-out' },
+      { id: '59', name: 'Veripages', optOutUrl: 'https://veripages.com/optout' },
+      { id: '60', name: 'VoterRecords', optOutUrl: 'https://voterrecords.com/optout' },
+      { id: '61', name: '411.com', optOutUrl: 'https://www.411.com/privacy/manage' },
+      { id: '62', name: '411 Locate', optOutUrl: 'https://www.411locate.com/optout' },
+      { id: '63', name: 'Ancestry', optOutUrl: 'https://www.ancestry.com/cs/legal/ccpa-personal-information-request-form' },
+      { id: '64', name: 'AnyWho', optOutUrl: 'https://www.anywho.com/optout' },
+      { id: '65', name: 'Arrests.org', optOutUrl: 'https://arrests.org/opt-out/' },
+      { id: '66', name: 'CallTruth', optOutUrl: 'https://calltruth.com/optout' },
+      { id: '67', name: 'CheckPeople', optOutUrl: 'https://www.checkpeople.com/opt-out' },
+      { id: '68', name: 'CocoFinder', optOutUrl: 'https://cocofinder.com/optout' },
+      { id: '69', name: 'CyberBackgroundChecks', optOutUrl: 'https://www.cyberbackgroundchecks.com/removal' },
+      { id: '70', name: 'FamilyTreeNow', optOutUrl: 'https://www.familytreenow.com/optout' }
     ];
   }
 
