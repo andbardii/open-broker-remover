@@ -5,6 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { DataRequest } from '@/lib/types';
+import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 
 interface DashboardProps {
   requests: DataRequest[];
@@ -28,16 +30,39 @@ const Dashboard: React.FC<DashboardProps> = ({ requests }) => {
     { name: 'Completed', value: completedRequests, color: '#8B5CF6' },
   ].filter(item => item.value > 0);
   
-  // Data for bar chart - simulating monthly activity
-  const barData = [
-    { name: 'Jan', requests: 4 },
-    { name: 'Feb', requests: 7 },
-    { name: 'Mar', requests: 5 },
-    { name: 'Apr', requests: 8 },
-    { name: 'May', requests: 12 },
-    { name: 'Jun', requests: 9 },
-  ];
+  // We'll show empty states when no data is available
+  if (totalRequests === 0) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="col-span-full">
+          <CardHeader>
+            <CardTitle>Welcome to Data Removal Assistant</CardTitle>
+            <CardDescription>Get started by creating your first data removal request</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-6">
+            <div className="text-center mb-6">
+              <p className="mb-4">
+                You haven't created any data removal requests yet. Start by finding data brokers 
+                that might have your information or create a new request directly.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+                <Button variant="outline" className="flex items-center gap-2" onClick={() => window.location.hash = 'find-brokers'}>
+                  <PlusCircle className="h-4 w-4" />
+                  Find Data Brokers
+                </Button>
+                <Button className="flex items-center gap-2" onClick={() => window.location.hash = 'new-request'}>
+                  <PlusCircle className="h-4 w-4" />
+                  Create New Request
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
+  // For projects with requests, show the regular dashboard
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <Card className="col-span-full lg:col-span-2">
@@ -74,14 +99,19 @@ const Dashboard: React.FC<DashboardProps> = ({ requests }) => {
           </div>
           
           <div className="mt-6">
-            <h3 className="font-medium mb-2">Monthly Activity</h3>
+            <h3 className="font-medium mb-2">Request Activity</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <BarChart data={[
+                  { name: 'Pending', value: pendingRequests },
+                  { name: 'Sent', value: sentRequests },
+                  { name: 'Responded', value: respondedRequests },
+                  { name: 'Completed', value: completedRequests },
+                ]} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="requests" fill="#3B82F6" />
+                  <Bar dataKey="value" fill="#3B82F6" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -95,28 +125,36 @@ const Dashboard: React.FC<DashboardProps> = ({ requests }) => {
           <CardDescription>Current status breakdown</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {pieData.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center">
+              <p className="text-muted-foreground text-center">
+                No data to display yet
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

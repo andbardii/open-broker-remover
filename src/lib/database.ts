@@ -1,4 +1,3 @@
-
 import { DataRequest, DataBroker } from './types';
 
 // This is a mock implementation of SQLite for the frontend
@@ -8,45 +7,7 @@ class DatabaseService {
   private dataBrokers: DataBroker[] = [];
 
   constructor() {
-    // Initialize with some example data
-    this.requests = [
-      {
-        id: '1',
-        brokerName: 'DataCorp Inc.',
-        status: 'sent',
-        dateCreated: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        dateUpdated: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        userEmail: 'user@example.com',
-      },
-      {
-        id: '2',
-        brokerName: 'InfoTrack',
-        status: 'responded',
-        dateCreated: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        dateUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        userEmail: 'user@example.com',
-        responseContent: 'Your request has been received and is being processed.'
-      },
-      {
-        id: '3',
-        brokerName: 'DataMiners',
-        status: 'completed',
-        dateCreated: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        dateUpdated: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-        userEmail: 'user@example.com',
-        responseContent: 'We have removed your data as requested.'
-      },
-      {
-        id: '4',
-        brokerName: 'ProfileTrack',
-        status: 'pending',
-        dateCreated: new Date().toISOString(),
-        dateUpdated: new Date().toISOString(),
-        userEmail: 'user@example.com',
-      }
-    ];
-
-    // Initialize with real data broker information
+    // Initialize with real data broker information but no requests
     this.dataBrokers = [
       { id: '1', name: 'Acxiom', optOutUrl: 'https://www.acxiom.com/optout/' },
       { id: '2', name: 'BeenVerified', optOutUrl: 'https://www.beenverified.com/app/optout/search' },
@@ -132,13 +93,10 @@ class DatabaseService {
     return true;
   }
 
-  // New methods for data broker operations
   async getDataBrokers(): Promise<DataBroker[]> {
     return this.dataBrokers;
   }
 
-  // Find potential data brokers that might have user's email
-  // In a real implementation, this would check against actual data broker APIs or databases
   async findDataBrokersForEmail(email: string): Promise<DataBroker[]> {
     console.log(`Finding data brokers for email: ${email}`);
     
