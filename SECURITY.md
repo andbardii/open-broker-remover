@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-Open Broker Remover prende molto sul serio la sicurezza. Se trovi una vulnerabilità o hai dubbi relativi alla sicurezza del progetto, ti preghiamo di segnalarlo il prima possibile.
+Se trovi una vulnerabilità o hai dubbi relativi alla sicurezza del progetto, ti preghiamo di segnalarlo il prima possibile.
 
 ### Come Segnalare
 - Crea una issue nel repository GitHub utilizzando l'etichetta **"security alert"**.
