@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,8 +15,17 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { automationService } from '@/lib/automation';
+import { db } from '@/lib/database';
+import { DataBroker } from '@/lib/types';
 
 const formSchema = z.object({
   brokerName: z.string().min(2, {
@@ -39,6 +48,8 @@ interface NewRequestFormProps {
 
 const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dataBrokers, setDataBrokers] = useState<DataBroker[]>([]);
+  const [isLoadingBrokers, setIsLoadingBrokers] = useState(true);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -49,6 +60,29 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
       additionalInfo: '',
     },
   });
+
+  useEffect(() => {
+    const loadDataBrokers = async () => {
+      try {
+        const brokers = await db.getDataBrokers();
+        setDataBrokers(brokers);
+      } catch (error) {
+        console.error('Error loading data brokers:', error);
+      } finally {
+        setIsLoadingBrokers(false);
+      }
+    };
+    
+    loadDataBrokers();
+  }, []);
+
+  const handleBrokerChange = (brokerId: string) => {
+    const selectedBroker = dataBrokers.find(broker => broker.id === brokerId);
+    if (selectedBroker) {
+      form.setValue('brokerName', selectedBroker.name);
+      form.setValue('brokerUrl', selectedBroker.optOutUrl);
+    }
+  };
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
@@ -87,10 +121,27 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
           name="brokerName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Data Broker Name</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. DataCorp Inc." {...field} />
-              </FormControl>
+              <FormLabel>Data Broker</FormLabel>
+              <Select
+                disabled={isLoadingBrokers}
+                onValueChange={(value) => {
+                  handleBrokerChange(value);
+                  return field.onChange(dataBrokers.find(broker => broker.id === value)?.name || '');
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a data broker" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {dataBrokers.map((broker) => (
+                    <SelectItem key={broker.id} value={broker.id}>
+                      {broker.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

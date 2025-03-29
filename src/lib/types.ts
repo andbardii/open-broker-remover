@@ -22,3 +22,10 @@ export interface SecurityConfig {
   encryptionEnabled: boolean;
   keyGenerated: boolean;
 }
+
+// New type for data brokers
+export interface DataBroker {
+  id: string;
+  name: string;
+  optOutUrl: string;
+}

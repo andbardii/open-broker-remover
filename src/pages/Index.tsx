@@ -6,6 +6,7 @@ import RequestList from '@/components/RequestList';
 import NewRequestForm from '@/components/NewRequestForm';
 import EmailSetup from '@/components/EmailSetup';
 import SecuritySetup from '@/components/SecuritySetup';
+import DataBrokerFinder from '@/components/DataBrokerFinder';
 import { db } from '@/lib/database';
 import { emailService } from '@/lib/email';
 import { DataRequest, EmailConfig } from '@/lib/types';
@@ -138,6 +139,19 @@ const Index = () => {
                 <NewRequestForm onRequestCreated={handleCreateRequest} />
               </CardContent>
             </Card>
+          </>
+        );
+      
+      case "find-brokers":
+        return (
+          <>
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold tracking-tight">Find Data Brokers</h2>
+              <p className="text-muted-foreground">
+                Find data brokers that may have your personal information
+              </p>
+            </div>
+            <DataBrokerFinder />
           </>
         );
         
