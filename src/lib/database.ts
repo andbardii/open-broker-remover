@@ -1,10 +1,8 @@
-
 import { DataRequest, DataBroker } from './types';
+import Database from 'better-sqlite3';
+import path from 'path';
 
-// This is a mock implementation of SQLite for the frontend
-// In a real implementation, this would use Electron's IPC to communicate with the backend
 class DatabaseService {
-  private requests: DataRequest[] = [];
   private dataBrokers: DataBroker[] = [];
 
   constructor() {
@@ -50,7 +48,6 @@ class DatabaseService {
       { id: '38', name: 'Homemetry', optOutUrl: 'https://homemetry.com/optout' },
       { id: '39', name: 'Innovis', optOutUrl: 'https://www.innovis.com/personal/optout' },
       { id: '40', name: 'IdTrue', optOutUrl: 'https://www.idtrue.com/optout' },
-      // Adding new data brokers
       { id: '41', name: 'Equifax', optOutUrl: 'https://www.equifax.com/personal/privacy/' },
       { id: '42', name: 'Experian', optOutUrl: 'https://www.experian.com/privacy/center.html' },
       { id: '43', name: 'TransUnion', optOutUrl: 'https://www.transunion.com/consumer-privacy' },
@@ -84,44 +81,45 @@ class DatabaseService {
     ];
   }
 
+  addRequest(brokerName: string, status: string, userEmail: string): number {
+    const db = new Database(path.join(process.cwd(), 'data', 'open_broker_remover.db'));
+    const stmt = db.prepare(`INSERT INTO requests (brokerName, status, dateCreated, dateUpdated, userEmail) VALUES (?, ?, datetime('now'), datetime('now'), ?);`);
+    const result = stmt.run(brokerName, status, userEmail);
+    db.close();
+    return result.lastInsertRowid as number;
+  }
+
   async getRequests(): Promise<DataRequest[]> {
-    return this.requests;
+    const db = new Database(path.join(process.cwd(), 'data', 'open_broker_remover.db'));
+    const stmt = db.prepare(`SELECT * FROM requests;`);
+    const requests = stmt.all();
+    db.close();
+    return requests;
   }
 
   async getRequestById(id: string): Promise<DataRequest | undefined> {
-    return this.requests.find(request => request.id === id);
+    const requests = await this.getRequests();
+    return requests.find(request => request.id === id);
   }
 
   async createRequest(request: Omit<DataRequest, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<DataRequest> {
-    const newRequest: DataRequest = {
-      ...request,
-      id: (this.requests.length + 1).toString(),
-      dateCreated: new Date().toISOString(),
-      dateUpdated: new Date().toISOString(),
-    };
-    
-    this.requests.push(newRequest);
-    return newRequest;
+    const id = this.addRequest(request.brokerName, 'pending', request.userEmail);
+    return { ...request, id: id.toString(), dateCreated: new Date().toISOString(), dateUpdated: new Date().toISOString() };
   }
 
   async updateRequest(id: string, updates: Partial<DataRequest>): Promise<DataRequest | undefined> {
-    const index = this.requests.findIndex(request => request.id === id);
-    if (index === -1) return undefined;
-    
-    this.requests[index] = {
-      ...this.requests[index],
-      ...updates,
-      dateUpdated: new Date().toISOString(),
-    };
-    
-    return this.requests[index];
+    const db = new Database(path.join(process.cwd(), 'data', 'open_broker_remover.db'));
+    const stmt = db.prepare(`UPDATE requests SET status = ?, dateUpdated = datetime('now'), responseContent = COALESCE(?, responseContent) WHERE id = ?;`);
+    stmt.run(updates.status || 'pending', updates.responseContent || null, parseInt(id, 10));
+    db.close();
+    return this.getRequestById(id);
   }
 
   async deleteRequest(id: string): Promise<boolean> {
-    const index = this.requests.findIndex(request => request.id === id);
-    if (index === -1) return false;
-    
-    this.requests.splice(index, 1);
+    const db = new Database(path.join(process.cwd(), 'data', 'open_broker_remover.db'));
+    const stmt = db.prepare(`DELETE FROM requests WHERE id = ?;`);
+    stmt.run(parseInt(id, 10));
+    db.close();
     return true;
   }
 
@@ -131,15 +129,7 @@ class DatabaseService {
 
   async findDataBrokersForEmail(email: string): Promise<DataBroker[]> {
     console.log(`Finding data brokers for email: ${email}`);
-    
-    // In a real implementation, this would use more sophisticated methods to determine
-    // which data brokers likely have the user's information.
-    // For now, we'll simulate by returning a subset of brokers
-    
-    // The number of data brokers to return (between 5 and 15)
     const numBrokers = Math.floor(Math.random() * 10) + 5;
-    
-    // Shuffle the data brokers array and take a random subset
     const shuffled = [...this.dataBrokers].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, numBrokers);
   }
