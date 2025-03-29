@@ -37,7 +37,7 @@ const RequestList: React.FC<RequestListProps> = ({ requests, onUpdateRequest }) 
       case 'responded':
         return <Badge variant="default">Responded</Badge>;
       case 'completed':
-        return <Badge variant="success" className="bg-green-500">Completed</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">Completed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

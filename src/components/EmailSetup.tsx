@@ -56,15 +56,24 @@ const EmailSetup: React.FC<EmailSetupProps> = ({ onSetupComplete, initialConfig 
 
   const onSubmit = async (data: FormValues) => {
     try {
+      // Create a fully-defined EmailConfig object from the form data
+      const emailConfig: EmailConfig = {
+        username: data.username,
+        password: data.password,
+        server: data.server,
+        port: data.port,
+        ssl: data.ssl,
+      };
+      
       // Configure the email service
-      emailService.configure(data);
+      emailService.configure(emailConfig);
       
       toast({
         title: "Email configured",
         description: "Your email settings have been saved and will be used to process responses.",
       });
       
-      onSetupComplete(data);
+      onSetupComplete(emailConfig);
     } catch (error) {
       console.error('Error configuring email:', error);
       toast({
