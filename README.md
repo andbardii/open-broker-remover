@@ -1,69 +1,75 @@
-# Welcome to your Lovable project
+# Open Broker Remover
 
-## Project info
+[![Node.js](https://img.shields.io/badge/Node.js-16%2B-green)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-MIT-green)](https://opensource.org/licenses/MIT)
+[![Maintenance](https://img.shields.io/badge/Maintained-Yes-brightgreen)](https://github.com/OpenBrokerRemover)
+[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen)](https://github.com/OpenBrokerRemover/pulls)
 
-**URL**: https://lovable.dev/projects/95212276-51f2-4384-ac96-803de6cec951
+Open Broker Remover è un'alternativa open-source che consente di richiedere l'eliminazione dei propri dati personali dai data broker in modo completamente locale ed efficiente. Il progetto è progettato per garantire la massima privacy, evitando l'utilizzo di servizi cloud e mantenendo il controllo completo sui dati personali.
 
-## How can I edit this code?
+## Indice
+- [Funzionalità Principali](#funzionalita-principali)
+- [Tecnologie Utilizzate](#tecnologie-utilizzate)
+- [Come Modificare il Codice](#come-modificare-il-codice)
+- [Distribuzione](#come-distribuire-il-progetto)
+- [Contributi](#contributi)
+- [Licenza](#licenza)
 
-There are several ways of editing your application.
+## Funzionalità Principali
+- **Richiesta di Eliminazione Dati**: Gestisce automaticamente le richieste di cancellazione dei dati personali verso vari data broker.
+- **Esecuzione in Locale**: Nessun dato viene inviato a server remoti, garantendo la totale privacy.
+- **Gestione Efficiente**: Ottimizzazione dei processi per garantire velocità e affidabilità.
+- **Compatibilità Multipiattaforma**: Supporta ambienti Windows, macOS e Linux.
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/95212276-51f2-4384-ac96-803de6cec951) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
+## Tecnologie Utilizzate
+Il progetto è costruito utilizzando le seguenti tecnologie:
 - Vite
 - TypeScript
 - React
-- shadcn-ui
+- Shadcn-UI
 - Tailwind CSS
 
-## How can I deploy this project?
+## Come Modificare il Codice
+Ci sono diversi modi per modificare il codice di questo progetto.
 
-Simply open [Lovable](https://lovable.dev/projects/95212276-51f2-4384-ac96-803de6cec951) and click on Share -> Publish.
+### Utilizzando Lovable
+Accedi al progetto tramite la piattaforma [Lovable Project](https://lovable.dev/projects/95212276-51f2-4384-ac96-803de6cec951) e inizia a lavorare. Tutte le modifiche apportate tramite Lovable verranno automaticamente inviate al repository.
 
-## I want to use a custom domain - is that possible?
+### Utilizzando il tuo IDE
+Se preferisci lavorare in locale, puoi clonare il repository e apportare modifiche. È necessario avere Node.js e npm installati. Ecco i passaggi:
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+```sh
+# Clona il repository utilizzando l'URL Git del progetto.
+git clone <YOUR_GIT_URL>
+
+# Accedi alla directory del progetto.
+cd <YOUR_PROJECT_NAME>
+
+# Installa le dipendenze.
+npm i
+
+# Avvia il server di sviluppo.
+npm run dev
+```
+
+### Modifica Direttamente su GitHub
+- Accedi ai file desiderati.
+- Clicca sul pulsante "Modifica" (icona della matita).
+- Apporta le modifiche e conferma il commit.
+
+### Utilizzo di GitHub Codespaces
+- Vai alla pagina principale del repository.
+- Clicca su "Code" e seleziona la scheda "Codespaces".
+- Crea un nuovo Codespace e modifica i file direttamente.
+
+## Come Distribuire il Progetto
+Per pubblicare il progetto, basta aprire [Lovable](https://lovable.dev/projects/95212276-51f2-4384-ac96-803de6cec951) e selezionare Condividi -> Pubblica.
+
+### Utilizzo di un Dominio Personalizzato
+Attualmente, non supportiamo domini personalizzati. Per utilizzare il tuo dominio, consigliamo di distribuire il progetto su Netlify. Maggiori informazioni sono disponibili nella nostra documentazione: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
+## Contributi
+Contributi, segnalazioni di bug e richieste di funzionalità sono i benvenuti. Sentiti libero di aprire una issue o inviare una pull request.
+
+## Licenza
+Questo progetto è distribuito sotto la licenza MIT.
