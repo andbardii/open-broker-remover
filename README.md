@@ -15,7 +15,6 @@ Il progetto è ancora in fase di sviluppo ed è nato dal desiderio di costruire 
 - [Tecnologie Utilizzate](#tecnologie-utilizzate)
 - [Come Modificare il Codice](#come-modificare-il-codice)
 - [Esecuzione Locale](#esecuzione-locale)
-- [Contributi](#contributi)
 - [Licenza](#licenza)
 
 ## Funzionalità Principali
@@ -35,33 +34,45 @@ Il progetto è costruito utilizzando le seguenti tecnologie:
 - Crittografia locale per la protezione dei dati sensibili
 
 ## Come Modificare il Codice
-Ci sono diversi modi per modificare il codice di questo progetto.
 
-### Utilizzando il tuo IDE
-Se preferisci lavorare in locale, puoi clonare il repository e apportare modifiche. È necessario avere Node.js e npm installati. Ecco i passaggi:
+Puoi contribuire al progetto seguendo il classico flusso di lavoro Git o lavorando in locale.
 
+### Metodo Classico: Fork, Clone e Pull Request
+1. **Fork del Repository**: Clicca su "Fork" nella pagina GitHub del progetto.
+2. **Clonazione**:
+   ```sh
+   git clone https://github.com/<IL_TUO_USERNAME>/open-broker-remover.git
+   ```
+3. **Crea un Branch**:
+   ```sh
+   git checkout -b nome-del-branch
+   ```
+4. **Modifiche e Test**:
+   ```sh
+   npm install
+   npm run dev
+   ```
+5. **Commit e Push**:
+   ```sh
+   git add .
+   git commit -m "Descrizione delle modifiche"
+   git push origin nome-del-branch
+   ```
+6. **Pull Request**: Vai su GitHub e apri una pull request.
+
+### Modifica Locale Diretta
+Clona il repository principale per lavorare in locale:
 ```sh
-# Clona il repository utilizzando l'URL Git del progetto.
-git clone <YOUR_GIT_URL>
-
-# Accedi alla directory del progetto.
-cd <YOUR_PROJECT_NAME>
-
-# Installa le dipendenze.
+git clone https://github.com/open-broker-remover/open-broker-remover.git
+cd open-broker-remover
 npm install
-
-# Avvia il server di sviluppo in locale.
 npm run dev
 ```
 
-### Utilizzando Lovable in Locale
-Il progetto è stato inizialmente creato utilizzando Lovable. Se preferisci modifiche tramite Lovable, assicurati di lavorare in locale senza sincronizzazione cloud per garantire la privacy.
+Se utilizzi Lovable, lavora in locale senza sincronizzazione cloud per garantire la privacy.
 
 ## Esecuzione Locale
 L'applicazione è progettata per funzionare esclusivamente in locale. Non sono presenti funzionalità online o di sincronizzazione con server remoti. Assicurati che il progetto non venga distribuito pubblicamente per garantire la protezione dei dati.
-
-## Contributi
-Contributi, segnalazioni di bug e richieste di funzionalità sono non solo benvenuti, ma fondamentali per lo sviluppo del progetto. Sentiti libero di aprire una issue o inviare una pull request.
 
 ## Licenza
 Questo progetto è distribuito sotto la licenza MIT.
