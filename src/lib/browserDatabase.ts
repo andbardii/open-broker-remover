@@ -1,4 +1,3 @@
-
 import { DataRequest, DataBroker } from './types';
 
 class BrowserDatabaseService {
@@ -7,6 +6,7 @@ class BrowserDatabaseService {
   private requestsStoreName = 'requests';
   private brokersStoreName = 'brokers';
   private db: IDBDatabase | null = null;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
     // Initial data broker information
@@ -83,12 +83,18 @@ class BrowserDatabaseService {
       { id: '70', name: 'FamilyTreeNow', optOutUrl: 'https://www.familytreenow.com/optout' }
     ];
 
-    this.initDatabase();
+    this.initPromise = this.initDatabase();
   }
 
   private initDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 2); // Increment the version for the schema update
+      // If database is already initialized, resolve immediately
+      if (this.db) {
+        resolve();
+        return;
+      }
+
+      const request = indexedDB.open(this.dbName, 2); // Keep version 2
       
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
@@ -106,24 +112,14 @@ class BrowserDatabaseService {
           const store = db.createObjectStore(this.brokersStoreName, { keyPath: 'id', autoIncrement: true });
           store.createIndex('name', 'name', { unique: true });
         }
-        
-        // If this is the first time, populate the brokers store with initial data
-        if (event.oldVersion < 2 && this.dataBrokers.length > 0) {
-          const brokerStore = db.transaction([this.brokersStoreName], 'readwrite')
-            .objectStore(this.brokersStoreName);
-            
-          this.dataBrokers.forEach(broker => {
-            // Remove the id so it auto-increments
-            const { id, ...brokerData } = broker;
-            brokerStore.add(brokerData);
-          });
-        }
       };
       
       request.onsuccess = (event) => {
         this.db = (event.target as IDBOpenDBRequest).result;
         console.log('IndexedDB initialized successfully');
-        resolve();
+        
+        // Check if brokers store is empty and populate if needed
+        this.populateInitialBrokersIfEmpty().then(resolve).catch(reject);
       };
       
       request.onerror = (event) => {
@@ -133,6 +129,33 @@ class BrowserDatabaseService {
     });
   }
 
+  // New method to check if brokers store is empty and populate if needed
+  private async populateInitialBrokersIfEmpty(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      const brokers = await this.getDataBrokers();
+      
+      // If no brokers found, populate with initial data
+      if (brokers.length === 0 && this.dataBrokers.length > 0) {
+        console.log('No data brokers found in database, populating with initial data...');
+        
+        // Use a Promise.all to add all brokers
+        const promises = this.dataBrokers.map(broker => {
+          // Remove the id so it auto-increments
+          const { id, ...brokerData } = broker;
+          return this.addDataBroker(brokerData);
+        });
+        
+        await Promise.all(promises);
+        console.log(`Populated database with ${this.dataBrokers.length} data brokers`);
+      }
+    } catch (error) {
+      console.error('Error checking/populating data brokers:', error);
+      throw error;
+    }
+  }
+
   private getDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       if (this.db) {
@@ -140,7 +163,23 @@ class BrowserDatabaseService {
         return;
       }
       
-      this.initDatabase()
+      // If initialization is in progress, wait for it
+      if (this.initPromise) {
+        this.initPromise
+          .then(() => {
+            if (this.db) {
+              resolve(this.db);
+            } else {
+              reject(new Error('Database not initialized after init promise resolved'));
+            }
+          })
+          .catch(reject);
+        return;
+      }
+      
+      // If no init promise, start initialization
+      this.initPromise = this.initDatabase();
+      this.initPromise
         .then(() => {
           if (this.db) {
             resolve(this.db);
@@ -299,26 +338,31 @@ class BrowserDatabaseService {
   }
 
   async getDataBrokers(): Promise<DataBroker[]> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.brokersStoreName], 'readonly');
-      const store = transaction.objectStore(this.brokersStoreName);
-      const request = store.getAll();
+    try {
+      const db = await this.getDatabase();
       
-      request.onsuccess = () => {
-        // Convert numeric IDs to strings to match the expected interface
-        const brokers = request.result.map(broker => ({
-          ...broker,
-          id: broker.id.toString()
-        }));
-        resolve(brokers);
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.brokersStoreName], 'readonly');
+        const store = transaction.objectStore(this.brokersStoreName);
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+          // Convert numeric IDs to strings to match the expected interface
+          const brokers = request.result.map(broker => ({
+            ...broker,
+            id: broker.id.toString()
+          }));
+          resolve(brokers);
+        };
+        
+        request.onerror = () => {
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching data brokers:', error);
+      return []; // Return empty array on error to prevent cascading failures
+    }
   }
   
   async addDataBroker(broker: Omit<DataBroker, 'id'>): Promise<DataBroker> {

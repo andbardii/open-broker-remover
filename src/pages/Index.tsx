@@ -7,6 +7,7 @@ import NewRequestForm from '@/components/NewRequestForm';
 import EmailSetup from '@/components/EmailSetup';
 import SecuritySetup from '@/components/SecuritySetup';
 import DataBrokerManager from '@/components/DataBrokerManager';
+import DataBrokerFinder from '@/components/DataBrokerFinder';
 import WelcomeTutorial from '@/components/WelcomeTutorial';
 import { db } from '@/lib/database';
 import { emailService } from '@/lib/email';
