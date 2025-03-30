@@ -280,6 +280,7 @@ class BrowserDatabaseService {
     const db = await this.getDatabase();
     const numericId = parseInt(id, 10);
     
+    //TODO Check if updates are valid
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve, reject) => {
       const transaction = db.transaction([this.requestsStoreName], 'readwrite');
