@@ -68,6 +68,11 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         setDataBrokers(brokers);
       } catch (error) {
         console.error('Error loading data brokers:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load data brokers list.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoadingBrokers(false);
       }

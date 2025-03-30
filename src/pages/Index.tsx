@@ -20,9 +20,10 @@ const Index = () => {
   
   useEffect(() => {
     const loadRequests = async () => {
+      setIsLoading(true);
       try {
         const data = await db.getRequests();
-        setRequests(data);
+        setRequests(data || []);
       } catch (error) {
         console.error('Error loading requests:', error);
         toast({

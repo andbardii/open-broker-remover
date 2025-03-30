@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Link, ExternalLink } from "lucide-react";
+import { Search, ExternalLink } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -78,13 +78,15 @@ const DataBrokerFinder: React.FC = () => {
       const email = form.getValues().email;
       
       // Create opt-out requests for all found brokers
-      for (const broker of foundBrokers) {
-        await db.createRequest({
+      const creationPromises = foundBrokers.map(broker => 
+        db.createRequest({
           brokerName: broker.name,
           status: 'pending',
           userEmail: email,
-        });
-      }
+        })
+      );
+      
+      await Promise.all(creationPromises);
       
       toast({
         title: "Requests created",
