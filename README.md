@@ -33,7 +33,7 @@ Il progetto è costruito utilizzando le seguenti tecnologie:
 - Better-SQLite3 per la gestione locale del database
 - Crittografia locale per la protezione dei dati sensibili
 
-## Come Modificare il Codice
+## Come Contribuire
 
 Puoi contribuire al progetto seguendo il classico flusso di lavoro Git o lavorando in locale.
 
