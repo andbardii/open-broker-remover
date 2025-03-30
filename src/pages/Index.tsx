@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/components/Dashboard';
@@ -5,8 +6,8 @@ import RequestList from '@/components/RequestList';
 import NewRequestForm from '@/components/NewRequestForm';
 import EmailSetup from '@/components/EmailSetup';
 import SecuritySetup from '@/components/SecuritySetup';
-import DataBrokerFinder from '@/components/DataBrokerFinder';
 import DataBrokerManager from '@/components/DataBrokerManager';
+import WelcomeTutorial from '@/components/WelcomeTutorial';
 import { db } from '@/lib/database';
 import { emailService } from '@/lib/email';
 import { DataRequest, EmailConfig } from '@/lib/types';
@@ -17,8 +18,16 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [requests, setRequests] = useState<DataRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isContentLoading, setIsContentLoading] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   
   useEffect(() => {
+    // Check if it's the first visit
+    const tutorialCompleted = localStorage.getItem('tutorial_completed');
+    if (!tutorialCompleted) {
+      setShowTutorial(true);
+    }
+
     const loadRequests = async () => {
       setIsLoading(true);
       try {
@@ -39,7 +48,17 @@ const Index = () => {
     loadRequests();
   }, []);
   
+  const handleTabChange = (tab: string) => {
+    setIsContentLoading(true);
+    setActiveTab(tab);
+    // Simulate a brief loading state when changing tabs
+    setTimeout(() => {
+      setIsContentLoading(false);
+    }, 300);
+  };
+  
   const handleCreateRequest = async (data: any) => {
+    setIsContentLoading(true);
     try {
       const newRequest = await db.createRequest({
         brokerName: data.brokerName,
@@ -48,7 +67,12 @@ const Index = () => {
       });
       
       setRequests(prevRequests => [...prevRequests, newRequest]);
-      setActiveTab("requests");
+      handleTabChange("requests");
+      
+      toast({
+        title: "Request created",
+        description: `New request for ${data.brokerName} has been created`,
+      });
     } catch (error) {
       console.error('Error creating request:', error);
       toast({
@@ -56,10 +80,13 @@ const Index = () => {
         description: "Failed to create request",
         variant: "destructive",
       });
+    } finally {
+      setIsContentLoading(false);
     }
   };
   
   const handleUpdateRequest = async (id: string, updates: Partial<DataRequest>) => {
+    setIsContentLoading(true);
     try {
       const updatedRequest = await db.updateRequest(id, updates);
       
@@ -82,16 +109,39 @@ const Index = () => {
         description: "Failed to update request",
         variant: "destructive",
       });
+    } finally {
+      setIsContentLoading(false);
     }
   };
   
-  const handleEmailSetup = (config: EmailConfig) => {
-    emailService.configure(config);
-    setActiveTab("dashboard");
+  const handleEmailSetup = async (config: EmailConfig) => {
+    setIsContentLoading(true);
+    try {
+      await emailService.configure(config);
+      handleTabChange("dashboard");
+      
+      toast({
+        title: "Email configured",
+        description: "Your email settings have been saved",
+      });
+    } catch (error) {
+      console.error('Error setting up email:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save email configuration",
+        variant: "destructive",
+      });
+    } finally {
+      setIsContentLoading(false);
+    }
   };
   
   const handleSecuritySetup = () => {
-    setActiveTab("dashboard");
+    handleTabChange("dashboard");
+  };
+  
+  const handleCloseTutorial = () => {
+    setShowTutorial(false);
   };
   
   const renderContent = () => {
@@ -100,7 +150,18 @@ const Index = () => {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading...</p>
+            <p className="text-muted-foreground">Loading application data...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    if (isContentLoading) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-sm text-muted-foreground">Loading...</p>
           </div>
         </div>
       );
@@ -250,9 +311,12 @@ const Index = () => {
   };
 
   return (
-    <AppLayout activeTab={activeTab} onTabChange={setActiveTab}>
-      {renderContent()}
-    </AppLayout>
+    <>
+      {showTutorial && <WelcomeTutorial onClose={handleCloseTutorial} />}
+      <AppLayout activeTab={activeTab} onTabChange={handleTabChange}>
+        {renderContent()}
+      </AppLayout>
+    </>
   );
 };
 

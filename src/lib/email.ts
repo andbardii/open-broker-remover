@@ -1,3 +1,4 @@
+
 import { EmailConfig } from './types';
 import { saveConfig, loadConfig, updateConfig } from '@/lib/config';
 
@@ -8,24 +9,28 @@ export class EmailService {
     this.loadConfiguration();
   }
 
-  private loadConfiguration() {
-    const savedConfig = loadConfig();
-    if (savedConfig) {
-      // Convertiamo i valori da stringa ai tipi originali
-      this.config = {
-        username: savedConfig.username,
-        password: savedConfig.password,
-        server: savedConfig.server,
-        port: parseInt(savedConfig.port, 10),
-        ssl: savedConfig.ssl === 'true',
-      } as EmailConfig;
-      console.log('Loaded email configuration from encrypted file.');
+  private async loadConfiguration() {
+    try {
+      const savedConfig = await loadConfig();
+      if (savedConfig) {
+        // Convert string values to original types
+        this.config = {
+          username: savedConfig.username,
+          password: savedConfig.password,
+          server: savedConfig.server,
+          port: parseInt(savedConfig.port, 10),
+          ssl: savedConfig.ssl === 'true',
+        } as EmailConfig;
+        console.log('Loaded email configuration from encrypted file.');
+      }
+    } catch (error) {
+      console.error('Failed to load email configuration:', error);
     }
   }
 
-  configure(config: EmailConfig): void {
+  async configure(config: EmailConfig): Promise<void> {
     this.config = config;
-    // Convertiamo i valori in stringa per il salvataggio
+    // Convert values to string for storage
     const configToSave = {
       username: config.username,
       password: config.password,
@@ -33,16 +38,16 @@ export class EmailService {
       port: config.port.toString(),
       ssl: config.ssl.toString(),
     };
-    saveConfig(configToSave);
+    await saveConfig(configToSave);
     console.log('Email service configured and saved securely.');
   }
 
-  updateEmailConfig(updates: Partial<EmailConfig>): void {
+  async updateEmailConfig(updates: Partial<EmailConfig>): Promise<void> {
     if (!this.config) {
       console.warn('No existing configuration to update.');
       return;
     }
-    // Aggiorniamo solo i campi forniti
+    // Update only provided fields
     const updatedConfig = { ...this.config, ...updates };
     this.config = updatedConfig;
     const configToSave = {
@@ -52,7 +57,7 @@ export class EmailService {
       port: updatedConfig.port.toString(),
       ssl: updatedConfig.ssl.toString(),
     };
-    updateConfig(configToSave);
+    await updateConfig(configToSave);
     console.log('Email configuration updated successfully.');
   }
 

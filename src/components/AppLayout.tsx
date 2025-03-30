@@ -11,10 +11,12 @@ import {
   Shield, 
   Menu, 
   X,
-  Database
+  Database,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -34,6 +36,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({
     onTabChange(value);
     setSidebarOpen(false);
   };
+
+  const handleShowHelp = () => {
+    localStorage.removeItem('tutorial_completed');
+    window.location.reload();
+  };
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,6 +59,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           )}
           <h1 className="text-xl font-bold">AutoPrivacy</h1>
         </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleShowHelp}
+              className="ml-2"
+            >
+              <HelpCircle size={20} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Show tutorial</p>
+          </TooltipContent>
+        </Tooltip>
       </header>
       
       <div className="pt-16 flex h-[calc(100vh-4rem)]">

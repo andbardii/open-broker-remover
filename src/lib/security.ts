@@ -1,3 +1,4 @@
+
 import { saveConfig, loadConfig } from '@/lib/config';
 
 export class SecurityService {
@@ -8,23 +9,27 @@ export class SecurityService {
     this.loadEncryptionKey();
   }
 
-  private loadEncryptionKey() {
-    const savedConfig = loadConfig();
-    if (savedConfig && savedConfig.encryptionKey) {
-      this.encryptionKey = savedConfig.encryptionKey;
-      console.log('Encryption key loaded from secure storage.');
-    } else {
-      this.generateAndSaveKey();
+  private async loadEncryptionKey() {
+    try {
+      const savedConfig = await loadConfig();
+      if (savedConfig && savedConfig.encryptionKey) {
+        this.encryptionKey = savedConfig.encryptionKey;
+        console.log('Encryption key loaded from secure storage.');
+      } else {
+        await this.generateAndSaveKey();
+      }
+    } catch (error) {
+      console.error('Failed to load encryption key:', error);
     }
   }
 
-  generateAndSaveKey(): void {
+  async generateAndSaveKey(): Promise<void> {
     const key = Array.from(
       { length: 32 },
       () => Math.floor(Math.random() * 36).toString(36)
     ).join('');
     this.encryptionKey = key;
-    saveConfig({ encryptionKey: key });
+    await saveConfig({ encryptionKey: key });
     console.log('New encryption key generated and saved securely.');
   }
 
