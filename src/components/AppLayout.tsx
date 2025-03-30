@@ -10,7 +10,8 @@ import {
   Mail, 
   Shield, 
   Menu, 
-  X 
+  X,
+  Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -94,6 +95,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               >
                 <Clock className="mr-2 h-4 w-4" />
                 Request Tracking
+              </Button>
+              <Button 
+                variant={activeTab === "data-brokers" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("data-brokers")}
+              >
+                <Database className="mr-2 h-4 w-4" />
+                Data Brokers
               </Button>
               <Separator className="my-4" />
               <Button 

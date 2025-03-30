@@ -5,10 +5,11 @@ class BrowserDatabaseService {
   private dataBrokers: DataBroker[] = [];
   private dbName = 'open_broker_remover_db';
   private requestsStoreName = 'requests';
+  private brokersStoreName = 'brokers';
   private db: IDBDatabase | null = null;
 
   constructor() {
-    // Real data broker information - same as in the original code
+    // Initial data broker information
     this.dataBrokers = [
       { id: '1', name: 'Acxiom', optOutUrl: 'https://www.acxiom.com/optout/' },
       { id: '2', name: 'BeenVerified', optOutUrl: 'https://www.beenverified.com/app/optout/search' },
@@ -87,7 +88,7 @@ class BrowserDatabaseService {
 
   private initDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 1);
+      const request = indexedDB.open(this.dbName, 2); // Increment the version for the schema update
       
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
@@ -98,6 +99,24 @@ class BrowserDatabaseService {
           store.createIndex('userEmail', 'userEmail', { unique: false });
           store.createIndex('brokerName', 'brokerName', { unique: false });
           store.createIndex('status', 'status', { unique: false });
+        }
+        
+        // Create brokers store with auto-incrementing id
+        if (!db.objectStoreNames.contains(this.brokersStoreName)) {
+          const store = db.createObjectStore(this.brokersStoreName, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('name', 'name', { unique: true });
+        }
+        
+        // If this is the first time, populate the brokers store with initial data
+        if (event.oldVersion < 2 && this.dataBrokers.length > 0) {
+          const brokerStore = db.transaction([this.brokersStoreName], 'readwrite')
+            .objectStore(this.brokersStoreName);
+            
+          this.dataBrokers.forEach(broker => {
+            // Remove the id so it auto-increments
+            const { id, ...brokerData } = broker;
+            brokerStore.add(brokerData);
+          });
         }
       };
       
@@ -280,13 +299,74 @@ class BrowserDatabaseService {
   }
 
   async getDataBrokers(): Promise<DataBroker[]> {
-    return this.dataBrokers;
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.brokersStoreName], 'readonly');
+      const store = transaction.objectStore(this.brokersStoreName);
+      const request = store.getAll();
+      
+      request.onsuccess = () => {
+        // Convert numeric IDs to strings to match the expected interface
+        const brokers = request.result.map(broker => ({
+          ...broker,
+          id: broker.id.toString()
+        }));
+        resolve(brokers);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+  
+  async addDataBroker(broker: Omit<DataBroker, 'id'>): Promise<DataBroker> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.brokersStoreName], 'readwrite');
+      const store = transaction.objectStore(this.brokersStoreName);
+      
+      const request = store.add(broker);
+      
+      request.onsuccess = () => {
+        const newId = request.result as number;
+        resolve({
+          ...broker,
+          id: newId.toString()
+        });
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+  
+  async deleteDataBroker(id: string): Promise<boolean> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.brokersStoreName], 'readwrite');
+      const store = transaction.objectStore(this.brokersStoreName);
+      const request = store.delete(parseInt(id, 10));
+      
+      request.onsuccess = () => {
+        resolve(true);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
   }
 
   async findDataBrokersForEmail(email: string): Promise<DataBroker[]> {
     console.log(`Finding data brokers for email: ${email}`);
     const numBrokers = Math.floor(Math.random() * 10) + 5;
-    const shuffled = [...this.dataBrokers].sort(() => 0.5 - Math.random());
+    const brokers = await this.getDataBrokers();
+    const shuffled = [...brokers].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, numBrokers);
   }
 }

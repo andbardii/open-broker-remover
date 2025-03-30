@@ -31,6 +31,14 @@ class DatabaseService {
     return browserDb.getDataBrokers();
   }
 
+  async addDataBroker(broker: Omit<DataBroker, 'id'>): Promise<DataBroker> {
+    return browserDb.addDataBroker(broker);
+  }
+
+  async deleteDataBroker(id: string): Promise<boolean> {
+    return browserDb.deleteDataBroker(id);
+  }
+
   async findDataBrokersForEmail(email: string): Promise<DataBroker[]> {
     return browserDb.findDataBrokersForEmail(email);
   }

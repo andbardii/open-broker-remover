@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/components/Dashboard';
@@ -7,6 +6,7 @@ import NewRequestForm from '@/components/NewRequestForm';
 import EmailSetup from '@/components/EmailSetup';
 import SecuritySetup from '@/components/SecuritySetup';
 import DataBrokerFinder from '@/components/DataBrokerFinder';
+import DataBrokerManager from '@/components/DataBrokerManager';
 import { db } from '@/lib/database';
 import { emailService } from '@/lib/email';
 import { DataRequest, EmailConfig } from '@/lib/types';
@@ -177,6 +177,29 @@ const Index = () => {
                   requests={requests} 
                   onUpdateRequest={handleUpdateRequest} 
                 />
+              </CardContent>
+            </Card>
+          </>
+        );
+        
+      case "data-brokers":
+        return (
+          <>
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold tracking-tight">Data Brokers Management</h2>
+              <p className="text-muted-foreground">
+                View, add, and delete data brokers in the system
+              </p>
+            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Brokers</CardTitle>
+                <CardDescription>
+                  Manage the database of data brokers for opt-out requests
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DataBrokerManager />
               </CardContent>
             </Card>
           </>
