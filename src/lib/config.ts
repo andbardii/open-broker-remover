@@ -1,63 +1,113 @@
-import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
 
-const CONFIG_FILE = path.join(process.cwd(), 'config.enc');
-const KEY_FILE = path.join(process.cwd(), 'key.enc');
+// Browser-compatible configuration management
+const CONFIG_STORAGE_KEY = 'app_config_encrypted';
 
-function generateKey(): Buffer {
-  return crypto.randomBytes(32);
-}
-
-function saveKey(key: Buffer) {
-  fs.writeFileSync(KEY_FILE, key);
-}
-
-function loadKey(): Buffer {
-  if (fs.existsSync(KEY_FILE)) {
-    return fs.readFileSync(KEY_FILE);
-  }
-  const key = generateKey();
-  saveKey(key);
+// Simple encryption/decryption for browser
+function generateKey(): Uint8Array {
+  const key = new Uint8Array(32);
+  window.crypto.getRandomValues(key);
   return key;
 }
 
-const algorithm = 'aes-256-cbc';
-const key = loadKey();
-
-function encrypt(text: string): string {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
-  const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+// Convert ArrayBuffer to hex string
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-function decrypt(text: string): string {
-  const [ivHex, encryptedHex] = text.split(':');
-  const iv = Buffer.from(ivHex, 'hex');
-  const encrypted = Buffer.from(encryptedHex, 'hex');
-  const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  return decrypted.toString('utf8');
+// Convert hex string to Uint8Array
+function hexToBuffer(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
 }
 
-export function saveConfig(config: Record<string, string>) {
+// Get or create encryption key
+async function getOrCreateKey(): Promise<CryptoKey> {
+  const storedKeyHex = localStorage.getItem('config_encryption_key');
+  
+  if (storedKeyHex) {
+    const keyData = hexToBuffer(storedKeyHex);
+    return window.crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+  
+  // Generate a new key if none exists
+  const key = await window.crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+  
+  // Export and store the key
+  const exportedKey = await window.crypto.subtle.exportKey('raw', key);
+  localStorage.setItem('config_encryption_key', bufferToHex(exportedKey));
+  
+  return key;
+}
+
+// Encrypt data using Web Crypto API
+async function encrypt(text: string): Promise<string> {
+  const key = await getOrCreateKey();
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encodedText = new TextEncoder().encode(text);
+  
+  const encryptedBuffer = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encodedText
+  );
+  
+  return bufferToHex(iv) + ':' + bufferToHex(encryptedBuffer);
+}
+
+// Decrypt data using Web Crypto API
+async function decrypt(encryptedData: string): Promise<string> {
+  const [ivHex, dataHex] = encryptedData.split(':');
+  const iv = hexToBuffer(ivHex);
+  const data = hexToBuffer(dataHex);
+  const key = await getOrCreateKey();
+  
+  const decryptedBuffer = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    data
+  );
+  
+  return new TextDecoder().decode(decryptedBuffer);
+}
+
+export async function saveConfig(config: Record<string, string>): Promise<void> {
   const data = JSON.stringify(config);
-  const encrypted = encrypt(data);
-  fs.writeFileSync(CONFIG_FILE, encrypted);
+  const encrypted = await encrypt(data);
+  localStorage.setItem(CONFIG_STORAGE_KEY, encrypted);
 }
 
-export function loadConfig(): Record<string, string> | null {
-  if (!fs.existsSync(CONFIG_FILE)) {
+export async function loadConfig(): Promise<Record<string, string> | null> {
+  const encrypted = localStorage.getItem(CONFIG_STORAGE_KEY);
+  if (!encrypted) {
     return null;
   }
-  const encrypted = fs.readFileSync(CONFIG_FILE, 'utf8');
-  const decrypted = decrypt(encrypted);
-  return JSON.parse(decrypted);
+  
+  try {
+    const decrypted = await decrypt(encrypted);
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.error('Failed to decrypt configuration:', error);
+    return null;
+  }
 }
 
-export function updateConfig(updates: Record<string, string>) {
-  const config = loadConfig() || {};
+export async function updateConfig(updates: Record<string, string>): Promise<void> {
+  const config = await loadConfig() || {};
   const updatedConfig = { ...config, ...updates };
-  saveConfig(updatedConfig);
+  await saveConfig(updatedConfig);
 }

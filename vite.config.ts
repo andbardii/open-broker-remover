@@ -1,17 +1,18 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// Configurazione Vite per esecuzione locale con supporto Lovable
+// Configuration for local development with Lovable support
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "localhost",  // Accesso solo locale
+    host: "localhost",
     port: 8080,
   },
   plugins: [
     react(),
-    mode === 'development' && componentTagger(),  // Plugin Lovable solo in sviluppo
+    mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -20,7 +21,15 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: "esnext",
-    minify: false,  // Disabilita la minificazione per il debug locale
-    sourcemap: true,  // Mantieni i sourcemap per facilitare il debugging
+    minify: false,
+    sourcemap: true,
   },
+  optimizeDeps: {
+    exclude: ['path', 'fs', 'crypto'],
+  },
+  // Properly handle Node.js built-ins
+  define: {
+    // Provide empty implementations for Node.js modules when running in browser
+    'process.env': {}
+  }
 }));
