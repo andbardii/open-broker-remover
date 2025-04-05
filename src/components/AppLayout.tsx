@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -12,13 +11,17 @@ import {
   Menu, 
   X,
   Database,
-  HelpCircle
+  HelpCircle,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
+import { securityService } from '@/lib/security';
+import { toast } from '@/components/ui/use-toast';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -33,11 +36,50 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [encryptionEnabled, setEncryptionEnabled] = useState<boolean>(false);
   const { t } = useLanguage();
   
+  useEffect(() => {
+    const checkEncryptionStatus = async () => {
+      try {
+        const hasKey = securityService.hasKey();
+        setEncryptionEnabled(hasKey);
+      } catch (error) {
+        console.error('Error checking encryption status:', error);
+      }
+    };
+    checkEncryptionStatus();
+  }, []);
+
   const handleTabChange = (value: string) => {
     onTabChange(value);
     setSidebarOpen(false);
+  };
+
+  const handleToggleEncryption = async () => {
+    try {
+      if (!encryptionEnabled) {
+        await securityService.generateAndSaveKey();
+        setEncryptionEnabled(true);
+        toast({
+          title: 'Encryption Enabled',
+          description: 'Data encryption has been activated.',
+        });
+      } else {
+        setEncryptionEnabled(false);
+        toast({
+          title: 'Encryption Disabled',
+          description: 'Data encryption has been deactivated.',
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling encryption:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle encryption settings.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleShowHelp = () => {
@@ -64,6 +106,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         </div>
         <div className="flex items-center">
           <LanguageSwitcher />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleToggleEncryption}
+                className="ml-2"
+              >
+                {encryptionEnabled ? <Lock size={20} /> : <Unlock size={20} />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{encryptionEnabled ? t('disable-encryption') : t('enable-encryption')}</p>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -109,28 +166,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 {t('dashboard')}
               </Button>
               <Button 
-                variant={activeTab === "new-request" ? "default" : "ghost"} 
+                variant={activeTab === "security" ? "default" : "ghost"} 
                 className="w-full justify-start" 
-                onClick={() => handleTabChange("new-request")}
+                onClick={() => handleTabChange("security")}
               >
-                <ListPlus className="mr-2 h-4 w-4" />
-                {t('new-request')}
-              </Button>
-              <Button 
-                variant={activeTab === "requests" ? "default" : "ghost"} 
-                className="w-full justify-start" 
-                onClick={() => handleTabChange("requests")}
-              >
-                <Clock className="mr-2 h-4 w-4" />
-                {t('request-tracking')}
-              </Button>
-              <Button 
-                variant={activeTab === "data-brokers" ? "default" : "ghost"} 
-                className="w-full justify-start" 
-                onClick={() => handleTabChange("data-brokers")}
-              >
-                <Database className="mr-2 h-4 w-4" />
-                {t('data-brokers')}
+                <Shield className="mr-2 h-4 w-4" />
+                {t('security')}
               </Button>
               <Separator className="my-4" />
               <Button 
@@ -140,14 +181,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               >
                 <Mail className="mr-2 h-4 w-4" />
                 {t('email-settings')}
-              </Button>
-              <Button 
-                variant={activeTab === "security" ? "default" : "ghost"} 
-                className="w-full justify-start" 
-                onClick={() => handleTabChange("security")}
-              >
-                <Shield className="mr-2 h-4 w-4" />
-                {t('security')}
               </Button>
             </nav>
           </div>

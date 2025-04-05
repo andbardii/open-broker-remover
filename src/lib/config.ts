@@ -1,22 +1,21 @@
-
-// Browser-compatible configuration management
+// Chiave di configurazione per il localStorage
 const CONFIG_STORAGE_KEY = 'app_config_encrypted';
 
-// Simple encryption/decryption for browser
+// Generazione sicura della chiave crittografica
 function generateKey(): Uint8Array {
   const key = new Uint8Array(32);
   window.crypto.getRandomValues(key);
   return key;
 }
 
-// Convert ArrayBuffer to hex string
+// Converti ArrayBuffer in stringa esadecimale
 function bufferToHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
-// Convert hex string to Uint8Array
+// Converti stringa esadecimale in Uint8Array
 function hexToBuffer(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
@@ -25,89 +24,118 @@ function hexToBuffer(hex: string): Uint8Array {
   return bytes;
 }
 
-// Get or create encryption key
+// Recupera o genera una chiave crittografica AES-GCM
 async function getOrCreateKey(): Promise<CryptoKey> {
   const storedKeyHex = localStorage.getItem('config_encryption_key');
   
   if (storedKeyHex) {
-    const keyData = hexToBuffer(storedKeyHex);
-    return window.crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt', 'decrypt']
-    );
+    try {
+      const keyData = hexToBuffer(storedKeyHex);
+      return await window.crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    } catch (error) {
+      console.error('Errore durante l\'importazione della chiave:', error);
+    }
   }
   
-  // Generate a new key if none exists
+  // Genera una nuova chiave
   const key = await window.crypto.subtle.generateKey(
     { name: 'AES-GCM', length: 256 },
     true,
     ['encrypt', 'decrypt']
   );
-  
-  // Export and store the key
+
+  // Esporta e salva la chiave
   const exportedKey = await window.crypto.subtle.exportKey('raw', key);
   localStorage.setItem('config_encryption_key', bufferToHex(exportedKey));
+  console.log('Nuova chiave di configurazione generata e salvata.');
   
   return key;
 }
 
-// Encrypt data using Web Crypto API
+// Crittografa il testo con AES-GCM
 async function encrypt(text: string): Promise<string> {
   const key = await getOrCreateKey();
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const encodedText = new TextEncoder().encode(text);
-  
-  const encryptedBuffer = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encodedText
-  );
-  
-  return bufferToHex(iv) + ':' + bufferToHex(encryptedBuffer);
+
+  try {
+    const encryptedBuffer = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encodedText
+    );
+
+    // Concatena IV e dati crittografati
+    return `${bufferToHex(iv)}:${bufferToHex(encryptedBuffer)}`;
+  } catch (error) {
+    console.error('Errore durante la crittografia:', error);
+    throw new Error('Encryption failed');
+  }
 }
 
-// Decrypt data using Web Crypto API
+// Decrittografa il testo con AES-GCM
 async function decrypt(encryptedData: string): Promise<string> {
-  const [ivHex, dataHex] = encryptedData.split(':');
-  const iv = hexToBuffer(ivHex);
-  const data = hexToBuffer(dataHex);
-  const key = await getOrCreateKey();
-  
-  const decryptedBuffer = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    data
-  );
-  
-  return new TextDecoder().decode(decryptedBuffer);
+  try {
+    const [ivHex, dataHex] = encryptedData.split(':');
+    const iv = hexToBuffer(ivHex);
+    const data = hexToBuffer(dataHex);
+    const key = await getOrCreateKey();
+
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    );
+
+    return new TextDecoder().decode(decryptedBuffer);
+  } catch (error) {
+    console.error('Errore durante la decrittazione:', error);
+    throw new Error('Decryption failed');
+  }
 }
 
+// Salva la configurazione crittografata nel localStorage
 export async function saveConfig(config: Record<string, string>): Promise<void> {
-  const data = JSON.stringify(config);
-  const encrypted = await encrypt(data);
-  localStorage.setItem(CONFIG_STORAGE_KEY, encrypted);
+  try {
+    const data = JSON.stringify(config);
+    const encrypted = await encrypt(data);
+    localStorage.setItem(CONFIG_STORAGE_KEY, encrypted);
+    console.log('Configurazione salvata in modo sicuro.');
+  } catch (error) {
+    console.error('Errore durante il salvataggio della configurazione:', error);
+  }
 }
 
+// Carica la configurazione crittografata dal localStorage
 export async function loadConfig(): Promise<Record<string, string> | null> {
   const encrypted = localStorage.getItem(CONFIG_STORAGE_KEY);
   if (!encrypted) {
     return null;
   }
-  
+
   try {
     const decrypted = await decrypt(encrypted);
     return JSON.parse(decrypted);
   } catch (error) {
-    console.error('Failed to decrypt configuration:', error);
+    console.error('Errore durante il caricamento della configurazione:', error);
     return null;
   }
 }
 
+// Aggiorna una configurazione esistente
 export async function updateConfig(updates: Record<string, string>): Promise<void> {
-  const config = await loadConfig() || {};
-  const updatedConfig = { ...config, ...updates };
-  await saveConfig(updatedConfig);
+  try {
+    const config = (await loadConfig()) || {};
+    const updatedConfig = { ...config, ...updates };
+    await saveConfig(updatedConfig);
+    console.log('Configurazione aggiornata con successo.');
+  } catch (error) {
+    console.error('Errore durante l\'aggiornamento della configurazione:', error);
+  }
 }
