@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ListPlus, Clock, Mail, Shield, Database } from 'lucide-react';
+import { ListPlus, Clock, Shield, Database } from 'lucide-react';
 
 const WelcomeTutorial = ({ onClose }: { onClose: () => void }) => {
   const [activeStep, setActiveStep] = useState(0);
