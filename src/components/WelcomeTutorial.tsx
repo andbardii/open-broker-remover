@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ListPlus, Clock, Mail, Shield, Database, X } from 'lucide-react';
+import { ListPlus, Clock, Mail, Shield, Database } from 'lucide-react';
 
 const WelcomeTutorial = ({ onClose }: { onClose: () => void }) => {
   const [activeStep, setActiveStep] = useState(0);
@@ -133,9 +132,6 @@ const WelcomeTutorial = ({ onClose }: { onClose: () => void }) => {
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">{currentStep.title}</DialogTitle>
-            <Button variant="ghost" size="icon" onClick={handleClose}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
           <DialogDescription>{currentStep.description}</DialogDescription>
         </DialogHeader>
