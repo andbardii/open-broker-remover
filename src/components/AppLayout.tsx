@@ -17,6 +17,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageSwitcher from './LanguageSwitcher';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -31,6 +33,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t } = useLanguage();
   
   const handleTabChange = (value: string) => {
     onTabChange(value);
@@ -59,21 +62,24 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           )}
           <h1 className="text-xl font-bold">AutoPrivacy</h1>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleShowHelp}
-              className="ml-2"
-            >
-              <HelpCircle size={20} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Show tutorial</p>
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex items-center">
+          <LanguageSwitcher />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleShowHelp}
+                className="ml-2"
+              >
+                <HelpCircle size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t('show-tutorial')}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </header>
       
       <div className="pt-16 flex h-[calc(100vh-4rem)]">
@@ -86,7 +92,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         >
           <div className="p-4">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-semibold text-lg">Navigation</h2>
+              <h2 className="font-semibold text-lg">{t('navigation')}</h2>
               {isMobile && (
                 <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
                   <X size={18} />
@@ -100,7 +106,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 onClick={() => handleTabChange("dashboard")}
               >
                 <LayoutDashboard className="mr-2 h-4 w-4" />
-                Dashboard
+                {t('dashboard')}
               </Button>
               <Button 
                 variant={activeTab === "new-request" ? "default" : "ghost"} 
@@ -108,7 +114,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 onClick={() => handleTabChange("new-request")}
               >
                 <ListPlus className="mr-2 h-4 w-4" />
-                New Request
+                {t('new-request')}
               </Button>
               <Button 
                 variant={activeTab === "requests" ? "default" : "ghost"} 
@@ -116,7 +122,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 onClick={() => handleTabChange("requests")}
               >
                 <Clock className="mr-2 h-4 w-4" />
-                Request Tracking
+                {t('request-tracking')}
               </Button>
               <Button 
                 variant={activeTab === "data-brokers" ? "default" : "ghost"} 
@@ -124,7 +130,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 onClick={() => handleTabChange("data-brokers")}
               >
                 <Database className="mr-2 h-4 w-4" />
-                Data Brokers
+                {t('data-brokers')}
               </Button>
               <Separator className="my-4" />
               <Button 
@@ -133,7 +139,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 onClick={() => handleTabChange("email-settings")}
               >
                 <Mail className="mr-2 h-4 w-4" />
-                Email Settings
+                {t('email-settings')}
               </Button>
               <Button 
                 variant={activeTab === "security" ? "default" : "ghost"} 
@@ -141,7 +147,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 onClick={() => handleTabChange("security")}
               >
                 <Shield className="mr-2 h-4 w-4" />
-                Security
+                {t('security')}
               </Button>
             </nav>
           </div>
