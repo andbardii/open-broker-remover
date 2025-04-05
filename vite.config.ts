@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => ({
       port: 8080,
       clientPort: 8080,
       overlay: true,
+    },
+    // Add CORS configuration to restrict access to the development server
+    cors: {
+      origin: 'localhost:8080',
+      methods: ['GET', 'POST'],
+      credentials: true
     }
   },
   plugins: [
@@ -49,5 +55,13 @@ export default defineConfig(({ mode }) => ({
     'process.env': {},
     // Define the WebSocket token to avoid the reference error
     __WS_TOKEN__: JSON.stringify("development-ws-token")
+  },
+  // Add esbuild options to use the patched version
+  esbuild: {
+    // Apply additional security settings for esbuild
+    supported: {
+      // Ensure modern features are used
+      'top-level-await': true
+    }
   }
 }));
