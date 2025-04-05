@@ -9,6 +9,14 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "localhost",
     port: 8080,
+    fs: {
+      // Explicitly set strict file serving policy
+      strict: true,
+      // Define allowed directories to prevent directory traversal
+      allow: [path.resolve(__dirname)],
+      // Explicitly deny access to sensitive directories
+      deny: ['.git', '.env', 'node_modules/.vite']
+    }
   },
   plugins: [
     react(),
