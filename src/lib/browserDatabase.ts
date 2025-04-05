@@ -94,7 +94,7 @@ class BrowserDatabaseService {
         return;
       }
 
-      const request = indexedDB.open(this.dbName, 2); // Keep version 2
+      const request = indexedDB.open(this.dbName, 3); // Keep version 3
       
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;

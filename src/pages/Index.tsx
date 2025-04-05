@@ -58,6 +58,8 @@ const Index = () => {
     }, 300);
   };
   
+  //TODO Check for alternatives
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCreateRequest = async (data: any) => {
     setIsContentLoading(true);
     try {
