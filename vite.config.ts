@@ -16,6 +16,14 @@ export default defineConfig(({ mode }) => ({
       allow: [path.resolve(__dirname)],
       // Explicitly deny access to sensitive directories
       deny: ['.git', '.env', 'node_modules/.vite']
+    },
+    hmr: {
+      // Configure HMR to avoid WebSocket token issues
+      protocol: 'ws',
+      host: 'localhost',
+      port: 8080,
+      clientPort: 8080,
+      overlay: true,
     }
   },
   plugins: [
@@ -38,6 +46,8 @@ export default defineConfig(({ mode }) => ({
   // Properly handle Node.js built-ins
   define: {
     // Provide empty implementations for Node.js modules when running in browser
-    'process.env': {}
+    'process.env': {},
+    // Define the WebSocket token to avoid the reference error
+    __WS_TOKEN__: JSON.stringify("development-ws-token")
   }
 }));
