@@ -7,43 +7,63 @@ export class SecurityService {
     this.loadEncryptionKey();
   }
 
-  // Carica la chiave crittografica al momento dell'istanziazione
   private async loadEncryptionKey() {
     try {
       const savedConfig = await loadConfig();
       if (savedConfig && savedConfig.encryptionKey) {
-        // Converte la chiave da stringa a oggetto JsonWebKey
-        const parsedKey = JSON.parse(savedConfig.encryptionKey) as JsonWebKey;
-        this.encryptionKey = await this.importKey(parsedKey);
-        console.log('Encryption key loaded from secure storage.');
+        try {
+          // Decodifica la chiave da stringa hex a Uint8Array
+          const keyBuffer = hexToBuffer(savedConfig.encryptionKey);
+  
+          // Importa la chiave come CryptoKey
+          const importedKey = await window.crypto.subtle.importKey(
+            'raw',
+            keyBuffer,
+            { name: 'AES-GCM' },
+            false,
+            ['encrypt', 'decrypt']
+          );
+  
+          this.encryptionKey = importedKey;
+          console.log('Encryption key successfully loaded and imported.');
+        } catch (parseError) {
+          console.error('Invalid encryption key format:', parseError);
+          await this.generateAndSaveKey();  // Rigenera la chiave se corrotta
+        }
       } else {
-        await this.generateAndSaveKey();
+        await this.generateAndSaveKey();  // Genera una nuova chiave se non esiste
       }
     } catch (error) {
       console.error('Failed to load encryption key:', error);
     }
   }
   
+    
   // Genera e salva una nuova chiave crittografica sicura
   async generateAndSaveKey(): Promise<void> {
     try {
-      this.encryptionKey = await crypto.subtle.generateKey(
-        {
-          name: 'AES-GCM',
-          length: 256,
-        },
+      // Genera una chiave AES-GCM a 256 bit (32 byte)
+      const key = await window.crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
         true,
         ['encrypt', 'decrypt']
       );
-      // Esporta la chiave e la converte in una stringa JSON
-      const exportedKey = await this.exportKey(this.encryptionKey);
-      await saveConfig({ encryptionKey: JSON.stringify(exportedKey) });
+  
+      // Esporta la chiave come ArrayBuffer
+      const exportedKey = await window.crypto.subtle.exportKey('raw', key);
+  
+      // Converti l'ArrayBuffer in una stringa hex
+      const keyHex = bufferToHex(exportedKey);
+      this.encryptionKey = key;
+  
+      // Salva la chiave nel config
+      await saveConfig({ encryptionKey: keyHex });
       console.log('New encryption key generated and saved securely.');
     } catch (error) {
       console.error('Failed to generate encryption key:', error);
     }
   }
-  
+    
   // Verifica se la chiave è presente
   hasKey(): boolean {
     return this.encryptionKey !== null;
@@ -113,17 +133,23 @@ export class SecurityService {
     return await crypto.subtle.exportKey('jwk', key);
   }
 
+}
 
-  // Importa una chiave da formato JWK
-  private async importKey(jwk: JsonWebKey): Promise<CryptoKey> {
-    return await crypto.subtle.importKey(
-      'jwk',
-      jwk,
-      { name: 'AES-GCM' },
-      true,
-      ['encrypt', 'decrypt']
-    );
+function hexToBuffer(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
   }
+  return bytes;
+}
+
+function bufferToHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 export const securityService = new SecurityService();
+
+
+
