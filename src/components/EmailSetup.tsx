@@ -140,7 +140,12 @@ const EmailSetup: React.FC<EmailSetupProps> = ({ onSetupComplete, initialConfig 
               <FormItem>
                 <FormLabel>Port</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="993" {...field} />
+                  <Input 
+                    type="number" 
+                    placeholder="993" 
+                    value={field.value !== undefined ? String(field.value) : ''} 
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

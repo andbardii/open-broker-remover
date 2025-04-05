@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { securityService } from '@/lib/security';
 import { db } from '@/lib/database';
-import { AlertCircle, Lock, ShieldCheck } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 interface SecuritySetupProps {
   onSetupComplete: () => void;
