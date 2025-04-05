@@ -59,6 +59,7 @@ const Index = () => {
   };
   
   //TODO Check for alternatives
+  //TODO Mock method...
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCreateRequest = async (data: any) => {
     setIsContentLoading(true);
@@ -88,6 +89,7 @@ const Index = () => {
     }
   };
   
+  //TODO Mock method...
   const handleUpdateRequest = async (id: string, updates: Partial<DataRequest>) => {
     setIsContentLoading(true);
     try {
