@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -24,9 +25,9 @@ export default defineConfig(({ mode }) => ({
       clientPort: 8080,
       overlay: true,
     },
-    // Enhanced CORS configuration
+    // Add CORS configuration to restrict access to the development server
     cors: {
-      origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+      origin: 'localhost:8080',
       methods: ['GET', 'POST'],
       credentials: true
     }
@@ -50,10 +51,10 @@ export default defineConfig(({ mode }) => ({
   },
   // Properly handle Node.js built-ins
   define: {
-    // Use actual environment variables
-    'process.env': process.env,
-    // Define the WebSocket token dynamically
-    __WS_TOKEN__: JSON.stringify(process.env.WS_TOKEN || "development-ws-token")
+    // Provide empty implementations for Node.js modules when running in browser
+    'process.env': {},
+    // Define the WebSocket token to avoid the reference error
+    __WS_TOKEN__: JSON.stringify("development-ws-token")
   },
   // Add esbuild options to use the patched version
   esbuild: {

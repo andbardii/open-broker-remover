@@ -1,5 +1,4 @@
 import { DataRequest, DataBroker } from './types';
-import { securityService } from './security';
 
 class BrowserDatabaseService {
   private dataBrokers: DataBroker[] = [];
@@ -83,43 +82,46 @@ class BrowserDatabaseService {
       { id: '69', name: 'CyberBackgroundChecks', optOutUrl: 'https://www.cyberbackgroundchecks.com/removal' },
       { id: '70', name: 'FamilyTreeNow', optOutUrl: 'https://www.familytreenow.com/optout' }
     ];
+
     this.initPromise = this.initDatabase();
   }
 
-  // Inizializzazione del database
   private initDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // If database is already initialized, resolve immediately
       if (this.db) {
         resolve();
         return;
       }
 
-      const request = indexedDB.open(this.dbName, 3); // Aumenta la versione del DB se hai modificato lo schema
-
+      const request = indexedDB.open(this.dbName, 2); // Keep version 2
+      
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         
-        // Store delle richieste
+        // Create requests store with auto-incrementing id
         if (!db.objectStoreNames.contains(this.requestsStoreName)) {
           const store = db.createObjectStore(this.requestsStoreName, { keyPath: 'id', autoIncrement: true });
           store.createIndex('userEmail', 'userEmail', { unique: false });
           store.createIndex('brokerName', 'brokerName', { unique: false });
           store.createIndex('status', 'status', { unique: false });
         }
-
-        // Store dei broker
+        
+        // Create brokers store with auto-incrementing id
         if (!db.objectStoreNames.contains(this.brokersStoreName)) {
           const store = db.createObjectStore(this.brokersStoreName, { keyPath: 'id', autoIncrement: true });
           store.createIndex('name', 'name', { unique: true });
         }
       };
-
+      
       request.onsuccess = (event) => {
         this.db = (event.target as IDBOpenDBRequest).result;
         console.log('IndexedDB initialized successfully');
-        resolve();
+        
+        // Check if brokers store is empty and populate if needed
+        this.populateInitialBrokersIfEmpty().then(resolve).catch(reject);
       };
-
+      
       request.onerror = (event) => {
         console.error('Error opening IndexedDB:', (event.target as IDBOpenDBRequest).error);
         reject((event.target as IDBOpenDBRequest).error);
@@ -127,100 +129,291 @@ class BrowserDatabaseService {
     });
   }
 
-  // Aggiungi una richiesta con crittografia
-  async addRequest(brokerName: string, status: string, userEmail: string): Promise<number> {
-    const db = await this.getDatabase();
+  // New method to check if brokers store is empty and populate if needed
+  private async populateInitialBrokersIfEmpty(): Promise<void> {
+    if (!this.db) return;
 
-    //TODO Check alternatives
-    // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async (resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
-      const store = transaction.objectStore(this.requestsStoreName);
-
-      const now = new Date().toISOString();
-      const requestData = {
-        brokerName,
-        status,
-        dateCreated: now,
-        dateUpdated: now,
-        userEmail
-      };
-
-      try {
-        const encryptedData = await securityService.encryptData(JSON.stringify(requestData));
-        const request = store.add({ data: encryptedData });
+    try {
+      const brokers = await this.getDataBrokers();
+      
+      // If no brokers found, populate with initial data
+      if (brokers.length === 0 && this.dataBrokers.length > 0) {
+        console.log('No data brokers found in database, populating with initial data...');
         
-        request.onsuccess = () => {
-          resolve(request.result as number);
-        };
-
-        request.onerror = () => {
-          reject(request.error);
-        };
-      } catch (error) {
-        console.error('Error encrypting data:', error);
-        reject(error);
+        // Use a Promise.all to add all brokers
+        const promises = this.dataBrokers.map(broker => {
+          // Remove the id so it auto-increments
+          const { id, ...brokerData } = broker;
+          return this.addDataBroker(brokerData);
+        });
+        
+        await Promise.all(promises);
+        console.log(`Populated database with ${this.dataBrokers.length} data brokers`);
       }
-    });
+    } catch (error) {
+      console.error('Error checking/populating data brokers:', error);
+      throw error;
+    }
   }
 
-  // Recupera tutte le richieste con decrittografia
-  async getRequests(): Promise<DataRequest[]> {
-    const db = await this.getDatabase();
-  
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readonly');
-      const store = transaction.objectStore(this.requestsStoreName);
-      const request = store.getAll();
-  
-      request.onsuccess = async () => {
-        try {
-          const decryptedRequests: DataRequest[] = await Promise.all(
-            request.result.map(async (item: { data: string }) => {
-              const decrypted = await securityService.decryptData(item.data);
-              return JSON.parse(decrypted) as DataRequest;
-            })
-          );
-          resolve(decryptedRequests);
-        } catch (error) {
-          console.error('Error decrypting data:', error);
-          reject(error);
-        }
-      };
-  
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
-  }
-  
-
-  // Crea una nuova richiesta
-  async createRequest(request: Omit<DataRequest, 'id'>): Promise<DataRequest> {
-    const id = await this.addRequest(request.brokerName, request.status, request.userEmail);
-    return {
-      ...request,
-      id: id.toString(),
-      dateCreated: new Date().toISOString(),
-      dateUpdated: new Date().toISOString()
-    };
-  }
-
-  // Ottieni il database in modo sicuro
   private getDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       if (this.db) {
         resolve(this.db);
         return;
       }
-
+      
+      // If initialization is in progress, wait for it
       if (this.initPromise) {
-        this.initPromise.then(() => resolve(this.db as IDBDatabase)).catch(reject);
-      } else {
-        this.initPromise = this.initDatabase();
-        this.initPromise.then(() => resolve(this.db as IDBDatabase)).catch(reject);
+        this.initPromise
+          .then(() => {
+            if (this.db) {
+              resolve(this.db);
+            } else {
+              reject(new Error('Database not initialized after init promise resolved'));
+            }
+          })
+          .catch(reject);
+        return;
       }
+      
+      // If no init promise, start initialization
+      this.initPromise = this.initDatabase();
+      this.initPromise
+        .then(() => {
+          if (this.db) {
+            resolve(this.db);
+          } else {
+            reject(new Error('Failed to initialize database'));
+          }
+        })
+        .catch(reject);
     });
+  }
+
+  async addRequest(brokerName: string, status: string, userEmail: string): Promise<number> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
+      const store = transaction.objectStore(this.requestsStoreName);
+      
+      const now = new Date().toISOString();
+      const request = store.add({
+        brokerName,
+        status,
+        dateCreated: now,
+        dateUpdated: now,
+        userEmail
+      });
+      
+      request.onsuccess = () => {
+        resolve(request.result as number);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async getRequests(): Promise<DataRequest[]> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.requestsStoreName], 'readonly');
+      const store = transaction.objectStore(this.requestsStoreName);
+      const request = store.getAll();
+      
+      request.onsuccess = () => {
+        // Convert numeric IDs to strings to match the expected interface
+        const requests = request.result.map(req => ({
+          ...req,
+          id: req.id.toString()
+        }));
+        resolve(requests);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async getRequestById(id: string): Promise<DataRequest | undefined> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.requestsStoreName], 'readonly');
+      const store = transaction.objectStore(this.requestsStoreName);
+      const request = store.get(parseInt(id, 10));
+      
+      request.onsuccess = () => {
+        if (request.result) {
+          const result = request.result;
+          resolve({
+            ...result,
+            id: result.id.toString()
+          });
+        } else {
+          resolve(undefined);
+        }
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async createRequest(request: Omit<DataRequest, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<DataRequest> {
+    const id = await this.addRequest(request.brokerName, request.status, request.userEmail);
+    return { 
+      ...request, 
+      id: id.toString(), 
+      dateCreated: new Date().toISOString(), 
+      dateUpdated: new Date().toISOString() 
+    };
+  }
+
+  async updateRequest(id: string, updates: Partial<DataRequest>): Promise<DataRequest | undefined> {
+    const db = await this.getDatabase();
+    const numericId = parseInt(id, 10);
+    
+    //TODO Check if updates are valid
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async (resolve, reject) => {
+      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
+      const store = transaction.objectStore(this.requestsStoreName);
+      
+      // First get the existing record
+      const getRequest = store.get(numericId);
+      
+      getRequest.onsuccess = () => {
+        if (!getRequest.result) {
+          resolve(undefined);
+          return;
+        }
+        
+        const existingData = getRequest.result;
+        const updatedData = {
+          ...existingData,
+          ...updates,
+          dateUpdated: new Date().toISOString(),
+          id: numericId // Ensure ID is preserved
+        };
+        
+        const updateRequest = store.put(updatedData);
+        
+        updateRequest.onsuccess = async () => {
+          const updated = await this.getRequestById(id);
+          resolve(updated);
+        };
+        
+        updateRequest.onerror = () => {
+          reject(updateRequest.error);
+        };
+      };
+      
+      getRequest.onerror = () => {
+        reject(getRequest.error);
+      };
+    });
+  }
+
+  async deleteRequest(id: string): Promise<boolean> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
+      const store = transaction.objectStore(this.requestsStoreName);
+      const request = store.delete(parseInt(id, 10));
+      
+      request.onsuccess = () => {
+        resolve(true);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async getDataBrokers(): Promise<DataBroker[]> {
+    try {
+      const db = await this.getDatabase();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([this.brokersStoreName], 'readonly');
+        const store = transaction.objectStore(this.brokersStoreName);
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+          // Convert numeric IDs to strings to match the expected interface
+          const brokers = request.result.map(broker => ({
+            ...broker,
+            id: broker.id.toString()
+          }));
+          resolve(brokers);
+        };
+        
+        request.onerror = () => {
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching data brokers:', error);
+      return []; // Return empty array on error to prevent cascading failures
+    }
+  }
+  
+  async addDataBroker(broker: Omit<DataBroker, 'id'>): Promise<DataBroker> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.brokersStoreName], 'readwrite');
+      const store = transaction.objectStore(this.brokersStoreName);
+      
+      const request = store.add(broker);
+      
+      request.onsuccess = () => {
+        const newId = request.result as number;
+        resolve({
+          ...broker,
+          id: newId.toString()
+        });
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+  
+  async deleteDataBroker(id: string): Promise<boolean> {
+    const db = await this.getDatabase();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([this.brokersStoreName], 'readwrite');
+      const store = transaction.objectStore(this.brokersStoreName);
+      const request = store.delete(parseInt(id, 10));
+      
+      request.onsuccess = () => {
+        resolve(true);
+      };
+      
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async findDataBrokersForEmail(email: string): Promise<DataBroker[]> {
+    console.log(`Finding data brokers for email: ${email}`);
+    const numBrokers = Math.floor(Math.random() * 10) + 5;
+    const brokers = await this.getDataBrokers();
+    const shuffled = [...brokers].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, numBrokers);
   }
 }
 
