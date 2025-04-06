@@ -2,7 +2,7 @@ import { DataRequest, DataBroker } from './types';
 import { apiClient } from './api';
 
 class BrowserDatabaseService {
-  private dataBrokers: DataBroker[] = [];
+  private dataBrokers: Partial<DataBroker>[] = [];
   private dbName = 'open_broker_remover_db';
   private requestsStoreName = 'requests';
   private brokersStoreName = 'brokers';
@@ -141,11 +141,26 @@ class BrowserDatabaseService {
       if (brokers.length === 0 && this.dataBrokers.length > 0) {
         console.log('No data brokers found in database, populating with initial data...');
         
+        // Add required fields to match the DataBroker interface
+        const enrichedBrokers = this.dataBrokers.map(broker => {
+          // Ensure name and optOutUrl are present
+          if (!broker.name || !broker.optOutUrl) {
+            throw new Error(`Missing required fields for broker: ${JSON.stringify(broker)}`);
+          }
+          
+          return {
+            name: broker.name,
+            optOutUrl: broker.optOutUrl,
+            category: 'people-search' as const,
+            optOutMethod: 'form' as const,
+            dataTypes: ['personal'],
+            difficulty: 'medium' as const
+          };
+        });
+        
         // Use a Promise.all to add all brokers
-        const promises = this.dataBrokers.map(broker => {
-          // Remove the id so it auto-increments
-          const { id, ...brokerData } = broker;
-          return this.addDataBroker(brokerData);
+        const promises = enrichedBrokers.map(broker => {
+          return this.addDataBroker(broker);
         });
         
         await Promise.all(promises);
