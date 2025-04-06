@@ -4,6 +4,13 @@ export type Language = 'en' | 'it';
 // Translation dictionaries
 export const translations: Record<Language, Record<string, string>> = {
   en: {
+    // App title
+    'app-title': 'Open Broker Remover',
+    // Language change
+    'language-changed': 'Language changed',
+    'language-changed-description': 'The application language has been changed to English',
+    'language-change-error': 'Error changing language',
+    'language-change-error-description': 'There was a problem changing the language. Please try again.',
     // Navigation
     'navigation': 'Navigation',
     'dashboard': 'Dashboard',
@@ -58,6 +65,13 @@ export const translations: Record<Language, Record<string, string>> = {
     'create-requests-all': 'Create Opt-Out Requests for All',
   },
   it: {
+    // App title
+    'app-title': 'Open Broker Remover',
+    // Language change
+    'language-changed': 'Lingua cambiata',
+    'language-changed-description': 'La lingua dell\'applicazione è stata cambiata in Italiano',
+    'language-change-error': 'Errore nel cambio lingua',
+    'language-change-error-description': 'Si è verificato un problema durante il cambio lingua. Riprova.',
     // Navigation
     'navigation': 'Navigazione',
     'dashboard': 'Dashboard',
