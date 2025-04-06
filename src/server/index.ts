@@ -3,14 +3,39 @@ import cors from 'cors';
 import morgan from 'morgan';
 import path from 'path';
 import { dbService } from './database';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 
 // Create Express server
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Security middlewares
+// Apply helmet for security headers
+app.use(helmet());
+
+// Apply rate limiting to all requests
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use(generalLimiter);
+
+// More strict rate limiting for authentication/sensitive operations
+const strictLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // limit each IP to 10 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests for sensitive operations, please try again later.' }
+});
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' })); // Limit payload size
 app.use(morgan('dev'));
 
 // Serve static files from the React app in production
@@ -32,7 +57,8 @@ app.get('/api/brokers', (req, res) => {
   }
 });
 
-app.post('/api/brokers', (req, res) => {
+// Apply strict rate limiting to sensitive operations
+app.post('/api/brokers', strictLimiter, (req, res) => {
   try {
     const broker = dbService.addDataBroker(req.body);
     res.status(201).json(broker);
@@ -42,7 +68,7 @@ app.post('/api/brokers', (req, res) => {
   }
 });
 
-app.delete('/api/brokers/:id', (req, res) => {
+app.delete('/api/brokers/:id', strictLimiter, (req, res) => {
   try {
     const success = dbService.deleteDataBroker(req.params.id);
     if (success) {
@@ -96,7 +122,7 @@ app.get('/api/requests/:id', (req, res) => {
   }
 });
 
-app.post('/api/requests', (req, res) => {
+app.post('/api/requests', strictLimiter, (req, res) => {
   try {
     const request = dbService.createRequest(req.body);
     res.status(201).json(request);
@@ -106,7 +132,7 @@ app.post('/api/requests', (req, res) => {
   }
 });
 
-app.put('/api/requests/:id', (req, res) => {
+app.put('/api/requests/:id', strictLimiter, (req, res) => {
   try {
     const request = dbService.updateRequest(req.params.id, req.body);
     if (request) {
@@ -120,7 +146,7 @@ app.put('/api/requests/:id', (req, res) => {
   }
 });
 
-app.delete('/api/requests/:id', (req, res) => {
+app.delete('/api/requests/:id', strictLimiter, (req, res) => {
   try {
     const success = dbService.deleteRequest(req.params.id);
     if (success) {

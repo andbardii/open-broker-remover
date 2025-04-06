@@ -286,32 +286,62 @@ export const dbService = {
   findDataBrokersForEmail: (email: string): DataBroker[] => {
     console.log(`Finding data brokers for email: ${email}`);
     
-    // This logic selects brokers with a deterministic algorithm based on the email
-    // It uses the same approach as before, but implemented in SQL
+    // Input validation - ensure email is a string and has a reasonable length
+    if (typeof email !== 'string' || email.length > 256) {
+      console.error('Invalid email input');
+      return [];
+    }
     
     // Get all brokers first
     const allBrokers = dbService.getDataBrokers();
     
-    // Extract domain parts for filtering
-    const domain = email.split('@')[1] || '';
-    const domainParts = domain.split('.');
+    // Safely extract domain parts for filtering
+    const emailParts = email.split('@');
+    if (emailParts.length !== 2) {
+      console.error('Invalid email format');
+      return [];
+    }
     
-    // Use a deterministic approach to select brokers
+    const domain = emailParts[1];
+    // Limit the number of parts to prevent excessive processing
+    const domainParts = domain.split('.').slice(0, 3);
+    
+    // Create a deterministic selection algorithm based on the email hash
     // This ensures same email always returns same brokers
-    return allBrokers.filter((broker, index) => {
-      // Simple hash of the email
+    
+    // Deterministic hash function using a fixed algorithm
+    const generateHash = (input: string): number => {
       let hash = 0;
-      for (let i = 0; i < email.length; i++) {
-        const char = email.charCodeAt(i);
+      const MAX_CHARS = Math.min(input.length, 100); // Limit to prevent excessive looping
+      
+      for (let i = 0; i < MAX_CHARS; i++) {
+        const char = input.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash; // Convert to 32bit integer
       }
       
-      // Include broker if broker name contains part of domain or hash + index is divisible by 3
-      return domainParts.some(part => 
-        broker.name.toLowerCase().includes(part.toLowerCase()) || 
-        broker.optOutUrl.toLowerCase().includes(part.toLowerCase())
-      ) || (Math.abs(hash + index) % 3 === 0);
-    }).slice(0, Math.floor(Math.random() * 10) + 5); // Return a random number of brokers (5-15)
+      return Math.abs(hash);
+    };
+    
+    // Compute hash once
+    const emailHash = generateHash(email);
+    
+    // Filter brokers deterministically
+    const filteredBrokers = allBrokers.filter((broker, index) => {
+      // Match broker if name contains part of domain
+      const domainMatch = domainParts.some(part => 
+        part.length > 2 && broker.name.toLowerCase().includes(part.toLowerCase())
+      );
+      
+      // Use hash + index for deterministic but seemingly random selection
+      // Different from previous Math.random approach which was non-deterministic
+      const hashMatch = (emailHash + index) % 5 === 0;
+      
+      return domainMatch || hashMatch;
+    });
+    
+    // Deterministic selection - take first 5-10 results based on hash
+    const count = (emailHash % 6) + 5; // Returns 5-10 deterministically
+    return filteredBrokers.slice(0, Math.min(count, filteredBrokers.length));
   }
 }; 
