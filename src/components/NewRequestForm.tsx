@@ -6,6 +6,7 @@ import * as z from 'zod';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -25,7 +26,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { automationService } from '@/lib/automation';
 import { db } from '@/lib/database';
-import { DataBroker } from '@/lib/types';
+import { DataBroker, AutomationResult } from '@/lib/types';
 
 const formSchema = z.object({
   brokerName: z.string().min(2, {
@@ -50,6 +51,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dataBrokers, setDataBrokers] = useState<DataBroker[]>([]);
   const [isLoadingBrokers, setIsLoadingBrokers] = useState(true);
+  const [automationResult, setAutomationResult] = useState<AutomationResult | null>(null);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -91,21 +93,43 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
 
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
+    setAutomationResult(null);
     
     try {
-      // Simulate sending the request via automation
-      await automationService.sendRequest(data.brokerUrl, {
+      // Use the enhanced automation service to send the request
+      const result = await automationService.sendRequest(data.brokerUrl, {
         email: data.userEmail,
         additionalInfo: data.additionalInfo || '',
       });
       
-      toast({
-        title: "Request created",
-        description: `Request to ${data.brokerName} has been created and queued.`,
-      });
+      setAutomationResult(result);
       
-      onRequestCreated(data);
-      form.reset();
+      if (result.success) {
+        // Create a new request in the database with the result
+        await db.createRequest({
+          brokerName: data.brokerName,
+          status: 'sent',
+          userEmail: data.userEmail,
+          metadata: JSON.stringify({
+            timestamp: result.timestamp,
+            screenshot: result.screenshot,
+          }),
+        });
+        
+        toast({
+          title: "Request sent successfully",
+          description: `Request to ${data.brokerName} has been sent.`,
+        });
+        
+        onRequestCreated(data);
+        form.reset();
+      } else {
+        toast({
+          title: "Automation failed",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error creating request:', error);
       toast({
@@ -128,7 +152,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
             <FormItem>
               <FormLabel>Data Broker</FormLabel>
               <Select
-                disabled={isLoadingBrokers}
+                disabled={isLoadingBrokers || isSubmitting}
                 onValueChange={(value) => {
                   handleBrokerChange(value);
                   return field.onChange(dataBrokers.find(broker => broker.id === value)?.name || '');
@@ -159,7 +183,11 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
             <FormItem>
               <FormLabel>Opt-Out URL</FormLabel>
               <FormControl>
-                <Input placeholder="https://example.com/opt-out" {...field} />
+                <Input 
+                  placeholder="https://example.com/opt-out" 
+                  {...field} 
+                  disabled={isSubmitting}
+                />
               </FormControl>
               <FormDescription>
                 The URL where the opt-out form is located
@@ -176,7 +204,12 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
             <FormItem>
               <FormLabel>Your Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="your@email.com" {...field} />
+                <Input 
+                  type="email" 
+                  placeholder="your@email.com" 
+                  {...field} 
+                  disabled={isSubmitting}
+                />
               </FormControl>
               <FormDescription>
                 The email to use for the request and receiving responses
@@ -197,6 +230,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
                   placeholder="Any additional information to include with your request..."
                   className="resize-none"
                   {...field} 
+                  disabled={isSubmitting}
                 />
               </FormControl>
               <FormMessage />
@@ -205,9 +239,33 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         />
         
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Create Request"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Sending request...
+            </>
+          ) : (
+            "Send Request"
+          )}
         </Button>
       </form>
+      
+      {automationResult && automationResult.screenshot && (
+        <div className="mt-6 p-4 border rounded-md">
+          <h3 className="text-lg font-medium mb-2">Automation Result</h3>
+          <p className={`mb-2 ${automationResult.success ? 'text-green-600' : 'text-red-600'}`}>
+            {automationResult.message}
+          </p>
+          <div className="mt-4">
+            <p className="mb-2 text-sm text-gray-500">Screenshot captured:</p>
+            <img 
+              src={automationResult.screenshot} 
+              alt="Form submission screenshot" 
+              className="border rounded-md w-full"
+            />
+          </div>
+        </div>
+      )}
     </Form>
   );
 };

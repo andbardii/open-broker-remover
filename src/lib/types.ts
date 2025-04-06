@@ -30,3 +30,23 @@ export interface DataBroker {
   name: string;
   optOutUrl: string;
 }
+
+// New types for automation
+export interface AutomationConfig {
+  headless: boolean;
+  timeout: number;
+  userAgent?: string;
+}
+
+export interface FormField {
+  selector: string;
+  value: string;
+  type: 'text' | 'email' | 'checkbox' | 'radio' | 'select' | 'button';
+}
+
+export interface AutomationResult {
+  success: boolean;
+  message: string;
+  screenshot?: string; // Base64 encoded screenshot
+  timestamp: string;
+}
