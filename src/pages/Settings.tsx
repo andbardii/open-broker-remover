@@ -1,15 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Shield, Code, FileCode } from "lucide-react";
+import { Mail, Shield, Code, FileCode, Save, AlertCircle } from "lucide-react";
 import EmailSetup from '@/components/EmailSetup';
 import SecuritySetup from '@/components/SecuritySetup';
+import DiagnosticsPanel from '@/components/DiagnosticsPanel';
+import DataManagementPanel from '@/components/DataManagementPanel';
 import { EmailConfig } from '@/lib/types';
 import { emailService } from '@/lib/email';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
+import { AppConfig, developerService } from '@/lib/developer';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface SettingsProps {
   onTabChange: (tab: string) => void;
@@ -19,10 +23,11 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
   const [activeTab, setActiveTab] = useState("email");
   const [dockerConfig, setDockerConfig] = useState<string>('');
   const [appConfig, setAppConfig] = useState<string>('');
+  const [appConfigError, setAppConfigError] = useState<string | null>(null);
   const { t } = useLanguage();
 
-  // Fetch Docker configuration on component mount or tab switch
-  React.useEffect(() => {
+  // Fetch configurations on component mount or tab switch
+  useEffect(() => {
     if (activeTab === 'developer') {
       fetchDockerConfig();
       fetchAppConfig();
@@ -31,44 +36,30 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
 
   const fetchDockerConfig = async () => {
     try {
-      // In a real implementation, this would fetch the actual Dockerfile
-      setDockerConfig(`FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-ENV NODE_ENV=production
-
-CMD ["npm", "start"]`);
+      const config = await developerService.getDockerConfig();
+      setDockerConfig(config);
     } catch (error) {
       console.error('Error loading Docker configuration:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load Docker configuration',
+        variant: 'destructive'
+      });
     }
   };
 
   const fetchAppConfig = async () => {
     try {
-      // In a real implementation, this would fetch the actual app configuration
-      setAppConfig(`{
-  "apiUrl": "http://localhost:3001",
-  "maxRequestsPerDay": 50,
-  "enableAutomation": true,
-  "loggingLevel": "info",
-  "dataExportPath": "./exports",
-  "cacheExpiration": 86400,
-  "defaultLanguage": "en",
-  "securityOptions": {
-    "encryptionAlgorithm": "AES-256-GCM",
-    "allowRemoteConnections": false
-  }
-}`);
+      const config = await developerService.getAppConfig();
+      setAppConfig(JSON.stringify(config, null, 2));
+      setAppConfigError(null);
     } catch (error) {
       console.error('Error loading app configuration:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load application configuration',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -83,34 +74,56 @@ CMD ["npm", "start"]`);
 
   const handleSaveDockerConfig = async () => {
     try {
-      // In a real implementation, this would save the Dockerfile
-      toast({
-        title: "Docker configuration saved",
-        description: "The Docker configuration has been updated successfully."
-      });
+      const success = await developerService.saveDockerConfig(dockerConfig);
+      
+      if (success) {
+        toast({
+          title: t('config-saved'),
+          description: t('config-saved-description'),
+        });
+      } else {
+        throw new Error('Failed to save Docker configuration');
+      }
     } catch (error) {
       console.error('Error saving Docker configuration:', error);
       toast({
-        title: "Error",
-        description: "Failed to save Docker configuration.",
-        variant: "destructive"
+        title: t('config-error'),
+        description: t('config-error-description'),
+        variant: 'destructive'
       });
     }
   };
 
   const handleSaveAppConfig = async () => {
     try {
-      // In a real implementation, this would save the app configuration
-      toast({
-        title: "Application configuration saved",
-        description: "The application configuration has been updated successfully."
-      });
+      setAppConfigError(null);
+      
+      // Validate JSON
+      let config: AppConfig;
+      try {
+        config = JSON.parse(appConfig);
+      } catch (error) {
+        setAppConfigError('Invalid JSON format');
+        throw new Error('Invalid JSON format');
+      }
+      
+      // Save configuration
+      const success = await developerService.saveAppConfig(config);
+      
+      if (success) {
+        toast({
+          title: t('config-saved'),
+          description: t('config-saved-description'),
+        });
+      } else {
+        throw new Error('Failed to save application configuration');
+      }
     } catch (error) {
       console.error('Error saving app configuration:', error);
       toast({
-        title: "Error",
-        description: "Failed to save application configuration.",
-        variant: "destructive"
+        title: t('config-error'),
+        description: `${t('config-error-description')} ${error instanceof Error ? error.message : ''}`,
+        variant: 'destructive'
       });
     }
   };
@@ -178,53 +191,77 @@ CMD ["npm", "start"]`);
             <TabsContent value="developer" className="mt-6">
               <div className="space-y-8">
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-medium mb-1">Docker Configuration</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Edit the Dockerfile used to containerize this application
-                      </p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleSaveDockerConfig}
-                    >
-                      <FileCode className="h-4 w-4 mr-2" />
-                      Save Dockerfile
-                    </Button>
-                  </div>
-                  <Textarea 
-                    value={dockerConfig}
-                    onChange={(e) => setDockerConfig(e.target.value)}
-                    className="font-mono text-sm h-64"
-                    placeholder="Loading Docker configuration..."
-                  />
+                  <h3 className="text-lg font-medium mb-4">{t('developer-settings')}</h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    {t('developer-settings-description')}
+                  </p>
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-medium mb-1">Application Configuration</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Edit the application settings in JSON format
-                      </p>
+                
+                <div className="grid gap-6 grid-cols-1">
+                  {/* App Configuration */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-medium mb-1">{t('app-configuration')}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {t('app-config-description')}
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleSaveAppConfig}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {t('save-config')}
+                      </Button>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleSaveAppConfig}
-                    >
-                      <FileCode className="h-4 w-4 mr-2" />
-                      Save Config
-                    </Button>
+                    <Textarea 
+                      value={appConfig}
+                      onChange={(e) => setAppConfig(e.target.value)}
+                      className="font-mono text-sm h-64"
+                      placeholder="Loading application configuration..."
+                    />
+                    
+                    {appConfigError && (
+                      <Alert variant="destructive" className="mt-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{appConfigError}</AlertDescription>
+                      </Alert>
+                    )}
                   </div>
-                  <Textarea 
-                    value={appConfig}
-                    onChange={(e) => setAppConfig(e.target.value)}
-                    className="font-mono text-sm h-64"
-                    placeholder="Loading application configuration..."
-                  />
+
+                  {/* Docker Configuration */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-medium mb-1">{t('docker-configuration')}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {t('docker-config-description')}
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleSaveDockerConfig}
+                      >
+                        <FileCode className="h-4 w-4 mr-2" />
+                        {t('save-dockerfile')}
+                      </Button>
+                    </div>
+                    <Textarea 
+                      value={dockerConfig}
+                      onChange={(e) => setDockerConfig(e.target.value)}
+                      className="font-mono text-sm h-64"
+                      placeholder="Loading Docker configuration..."
+                    />
+                  </div>
+
+                  {/* Diagnostics Panel */}
+                  <DiagnosticsPanel />
+                  
+                  {/* Data Management Panel */}
+                  <DataManagementPanel />
                 </div>
               </div>
             </TabsContent>
