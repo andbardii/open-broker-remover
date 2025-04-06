@@ -19,6 +19,10 @@ const LanguageSwitcher: React.FC = () => {
   const languages: { code: Language; name: string; flag: string }[] = [
     { code: 'en', name: t('english'), flag: '🇬🇧' },
     { code: 'it', name: t('italian'), flag: '🇮🇹' },
+    { code: 'fr', name: t('french'), flag: '🇫🇷' },
+    { code: 'de', name: t('german'), flag: '🇩🇪' },
+    { code: 'es', name: t('spanish'), flag: '🇪🇸' },
+    { code: 'pt', name: t('portuguese'), flag: '🇵🇹' },
   ];
 
   const handleLanguageChange = useCallback((langCode: Language) => {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Language, translations } from './translations';
+import { developerService } from '@/lib/developer';
 
 // Define the context type
 type LanguageContextType = {
@@ -22,21 +23,42 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Try to get the language from localStorage, default to 'en'
   const [language, setLanguageState] = useState<Language>(() => {
     try {
+      // First check localStorage
       const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-      // Validate that the saved language is valid
-      if (savedLanguage === 'en' || savedLanguage === 'it') {
+      if (Object.keys(translations).includes(savedLanguage as Language)) {
         return savedLanguage as Language;
       }
-      return 'en'; // Default to English if invalid or not found
+      
+      // If not in localStorage, return default language
+      return 'en';
     } catch (error) {
       console.error('Error accessing localStorage:', error);
       return 'en';
     }
   });
 
+  // Load default language from app config on mount
+  useEffect(() => {
+    const loadDefaultLanguage = async () => {
+      try {
+        // Only attempt to load from config if no language is set in localStorage
+        if (!localStorage.getItem(LANGUAGE_STORAGE_KEY)) {
+          const appConfig = await developerService.getAppConfig();
+          if (appConfig.defaultLanguage && Object.keys(translations).includes(appConfig.defaultLanguage)) {
+            setLanguage(appConfig.defaultLanguage);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading default language from app config:', error);
+      }
+    };
+
+    loadDefaultLanguage();
+  }, []);
+
   // Function to set language with validation and storage
   const setLanguage = (newLanguage: Language) => {
-    if (newLanguage === 'en' || newLanguage === 'it') {
+    if (Object.keys(translations).includes(newLanguage)) {
       try {
         localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
         setLanguageState(newLanguage);

@@ -12,7 +12,7 @@ export interface AppConfig {
   loggingLevel: 'debug' | 'info' | 'warn' | 'error';
   dataExportPath: string;
   cacheExpiration: number;
-  defaultLanguage: 'en' | 'it';
+  defaultLanguage: 'en' | 'it' | 'fr' | 'de' | 'es' | 'pt';
   securityOptions: {
     encryptionAlgorithm: string;
     allowRemoteConnections: boolean;
