@@ -8,6 +8,7 @@ export interface DataRequest {
   dateUpdated: string;
   userEmail: string;
   responseContent?: string;
+  metadata?: string;
 }
 
 export interface EmailConfig {
