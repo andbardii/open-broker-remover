@@ -1,4 +1,5 @@
 import { DataRequest, DataBroker } from './types';
+import { apiClient } from './api';
 
 class BrowserDatabaseService {
   private dataBrokers: DataBroker[] = [];
@@ -191,229 +192,49 @@ class BrowserDatabaseService {
     });
   }
 
-  async addRequest(brokerName: string, status: string, userEmail: string): Promise<number> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
-      const store = transaction.objectStore(this.requestsStoreName);
-      
-      const now = new Date().toISOString();
-      const request = store.add({
-        brokerName,
-        status,
-        dateCreated: now,
-        dateUpdated: now,
-        userEmail
-      });
-      
-      request.onsuccess = () => {
-        resolve(request.result as number);
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
+  async addRequest(brokerName: string, status: 'pending' | 'sent' | 'responded' | 'completed', userEmail: string): Promise<number> {
+    const request = await apiClient.createRequest({
+      brokerName,
+      status,
+      userEmail
     });
+    return parseInt(request.id, 10);
   }
 
   async getRequests(): Promise<DataRequest[]> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readonly');
-      const store = transaction.objectStore(this.requestsStoreName);
-      const request = store.getAll();
-      
-      request.onsuccess = () => {
-        // Convert numeric IDs to strings to match the expected interface
-        const requests = request.result.map(req => ({
-          ...req,
-          id: req.id.toString()
-        }));
-        resolve(requests);
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    return apiClient.getRequests();
   }
 
   async getRequestById(id: string): Promise<DataRequest | undefined> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readonly');
-      const store = transaction.objectStore(this.requestsStoreName);
-      const request = store.get(parseInt(id, 10));
-      
-      request.onsuccess = () => {
-        if (request.result) {
-          const result = request.result;
-          resolve({
-            ...result,
-            id: result.id.toString()
-          });
-        } else {
-          resolve(undefined);
-        }
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    return apiClient.getRequestById(id);
   }
 
   async createRequest(request: Omit<DataRequest, 'id' | 'dateCreated' | 'dateUpdated'>): Promise<DataRequest> {
-    const id = await this.addRequest(request.brokerName, request.status, request.userEmail);
-    return { 
-      ...request, 
-      id: id.toString(), 
-      dateCreated: new Date().toISOString(), 
-      dateUpdated: new Date().toISOString() 
-    };
+    return apiClient.createRequest(request);
   }
 
   async updateRequest(id: string, updates: Partial<DataRequest>): Promise<DataRequest | undefined> {
-    const db = await this.getDatabase();
-    const numericId = parseInt(id, 10);
-    
-    //TODO Check if updates are valid
-    // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async (resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
-      const store = transaction.objectStore(this.requestsStoreName);
-      
-      // First get the existing record
-      const getRequest = store.get(numericId);
-      
-      getRequest.onsuccess = () => {
-        if (!getRequest.result) {
-          resolve(undefined);
-          return;
-        }
-        
-        const existingData = getRequest.result;
-        const updatedData = {
-          ...existingData,
-          ...updates,
-          dateUpdated: new Date().toISOString(),
-          id: numericId // Ensure ID is preserved
-        };
-        
-        const updateRequest = store.put(updatedData);
-        
-        updateRequest.onsuccess = async () => {
-          const updated = await this.getRequestById(id);
-          resolve(updated);
-        };
-        
-        updateRequest.onerror = () => {
-          reject(updateRequest.error);
-        };
-      };
-      
-      getRequest.onerror = () => {
-        reject(getRequest.error);
-      };
-    });
+    return apiClient.updateRequest(id, updates);
   }
 
   async deleteRequest(id: string): Promise<boolean> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.requestsStoreName], 'readwrite');
-      const store = transaction.objectStore(this.requestsStoreName);
-      const request = store.delete(parseInt(id, 10));
-      
-      request.onsuccess = () => {
-        resolve(true);
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    return apiClient.deleteRequest(id);
   }
 
   async getDataBrokers(): Promise<DataBroker[]> {
-    try {
-      const db = await this.getDatabase();
-      
-      return new Promise((resolve, reject) => {
-        const transaction = db.transaction([this.brokersStoreName], 'readonly');
-        const store = transaction.objectStore(this.brokersStoreName);
-        const request = store.getAll();
-        
-        request.onsuccess = () => {
-          // Convert numeric IDs to strings to match the expected interface
-          const brokers = request.result.map(broker => ({
-            ...broker,
-            id: broker.id.toString()
-          }));
-          resolve(brokers);
-        };
-        
-        request.onerror = () => {
-          reject(request.error);
-        };
-      });
-    } catch (error) {
-      console.error('Error fetching data brokers:', error);
-      return []; // Return empty array on error to prevent cascading failures
-    }
+    return apiClient.getDataBrokers();
   }
   
   async addDataBroker(broker: Omit<DataBroker, 'id'>): Promise<DataBroker> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.brokersStoreName], 'readwrite');
-      const store = transaction.objectStore(this.brokersStoreName);
-      
-      const request = store.add(broker);
-      
-      request.onsuccess = () => {
-        const newId = request.result as number;
-        resolve({
-          ...broker,
-          id: newId.toString()
-        });
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    return apiClient.addDataBroker(broker);
   }
   
   async deleteDataBroker(id: string): Promise<boolean> {
-    const db = await this.getDatabase();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([this.brokersStoreName], 'readwrite');
-      const store = transaction.objectStore(this.brokersStoreName);
-      const request = store.delete(parseInt(id, 10));
-      
-      request.onsuccess = () => {
-        resolve(true);
-      };
-      
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
+    return apiClient.deleteDataBroker(id);
   }
 
   async findDataBrokersForEmail(email: string): Promise<DataBroker[]> {
-    console.log(`Finding data brokers for email: ${email}`);
-    const numBrokers = Math.floor(Math.random() * 10) + 5;
-    const brokers = await this.getDataBrokers();
-    const shuffled = [...brokers].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, numBrokers);
+    return apiClient.findDataBrokersForEmail(email);
   }
 }
 

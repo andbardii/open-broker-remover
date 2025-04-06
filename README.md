@@ -13,31 +13,84 @@ Il progetto è ancora in fase di sviluppo ed è nato dal desiderio di costruire 
 ## Indice
 - [Funzionalità Principali](#funzionalita-principali)
 - [Tecnologie Utilizzate](#tecnologie-utilizzate)
-- [Come Modificare il Codice](#come-modificare-il-codice)
-- [Esecuzione Locale](#esecuzione-locale)
+- [Esecuzione con Docker](#esecuzione-con-docker)
+- [Sviluppo Locale](#sviluppo-locale)
 - [Licenza](#licenza)
 
 ## Funzionalità Principali
 - **Richiesta di Eliminazione Dati**: Gestisce automaticamente le richieste di cancellazione dei dati personali verso vari data broker.
 - **Esecuzione in Locale**: Nessun dato viene inviato a server remoti, garantendo la totale privacy.
 - **Gestione Efficiente**: Ottimizzazione dei processi per garantire velocità e affidabilità.
-- **Compatibilità Multipiattaforma**: Supporta ambienti Windows, macOS e Linux.
+- **Compatibilità Multipiattaforma**: Supporta ambienti Windows, macOS e Linux tramite Docker.
+- **Persistenza dei Dati**: Utilizza SQLite per salvare i dati in modo locale e sicuro.
 
 ## Tecnologie Utilizzate
 Il progetto è costruito utilizzando le seguenti tecnologie:
-- Vite
-- TypeScript
-- React
-- Shadcn-UI
-- Tailwind CSS
-- Better-SQLite3 per la gestione locale del database
-- Crittografia locale per la protezione dei dati sensibili
+- **Frontend**:
+  - Vite
+  - TypeScript
+  - React
+  - Shadcn-UI
+  - Tailwind CSS
+- **Backend**:
+  - Node.js con Express
+  - TypeScript
+  - Better-SQLite3 per la gestione locale del database
+  - Crittografia locale per la protezione dei dati sensibili
+- **Containerizzazione**:
+  - Docker e Docker Compose per la distribuzione
 
-## Come Contribuire
+## Esecuzione con Docker
+L'applicazione può essere facilmente eseguita utilizzando Docker, che incapsula sia il frontend che il backend in un unico container:
 
-Puoi contribuire al progetto seguendo il classico flusso di lavoro Git o lavorando in locale.
+1. **Prerequisiti**:
+   - Docker e Docker Compose installati sulla macchina
 
-### Metodo Classico: Fork, Clone e Pull Request
+2. **Avvio dell'applicazione**:
+   ```sh
+   # Clona il repository
+   git clone https://github.com/open-broker-remover/open-broker-remover.git
+   cd open-broker-remover
+
+   # Avvia l'applicazione con Docker Compose
+   docker-compose up -d
+   ```
+
+3. **Accesso all'applicazione**:
+   - Apri un browser e naviga a `http://localhost:3000`
+
+4. **Gestione dei dati**:
+   I dati sono persistenti grazie al volume Docker `open-broker-data` che viene creato automaticamente. Questo garantisce che i dati non vengano persi tra i riavvii del container.
+
+## Sviluppo Locale
+
+### Setup del Frontend e del Backend separati
+Per lo sviluppo, puoi eseguire il frontend e il backend separatamente:
+
+1. **Setup del Backend**:
+   ```sh
+   cd src/server
+   npm install
+   npm run dev
+   ```
+
+2. **Setup del Frontend**:
+   ```sh
+   # In una nuova finestra di terminale, nella directory principale
+   npm install
+   npm run dev
+   ```
+
+3. **Variabili d'ambiente**:
+   Crea un file `.env` nella directory principale con:
+   ```
+   VITE_API_URL=http://localhost:3001/api
+   ```
+
+### Modifica del Codice
+Puoi modificare il codice seguendo il classico flusso di lavoro Git o lavorando in locale.
+
+#### Metodo Classico: Fork, Clone e Pull Request
 1. **Fork del Repository**: Clicca su "Fork" nella pagina GitHub del progetto.
 2. **Clonazione**:
    ```sh
@@ -47,11 +100,7 @@ Puoi contribuire al progetto seguendo il classico flusso di lavoro Git o lavoran
    ```sh
    git checkout -b nome-del-branch
    ```
-4. **Modifiche e Test**:
-   ```sh
-   npm install
-   npm run dev
-   ```
+4. **Modifiche e Test**
 5. **Commit e Push**:
    ```sh
    git add .
@@ -59,20 +108,6 @@ Puoi contribuire al progetto seguendo il classico flusso di lavoro Git o lavoran
    git push origin nome-del-branch
    ```
 6. **Pull Request**: Vai su GitHub e apri una pull request.
-
-### Modifica Locale Diretta
-Clona il repository principale per lavorare in locale:
-```sh
-git clone https://github.com/open-broker-remover/open-broker-remover.git
-cd open-broker-remover
-npm install
-npm run dev
-```
-
-Se utilizzi Lovable, lavora in locale senza sincronizzazione cloud per garantire la privacy.
-
-## Esecuzione Locale
-L'applicazione è progettata per funzionare esclusivamente in locale. Non sono presenti funzionalità online o di sincronizzazione con server remoti. Assicurati che il progetto non venga distribuito pubblicamente per garantire la protezione dei dati.
 
 ## Licenza
 Questo progetto è distribuito sotto la licenza MIT.
