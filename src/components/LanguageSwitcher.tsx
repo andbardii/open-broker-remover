@@ -14,9 +14,9 @@ import { useLanguage, Language } from '@/contexts/LanguageContext';
 const LanguageSwitcher: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
 
-  const languages: { code: Language; name: string }[] = [
-    { code: 'en', name: t('english') },
-    { code: 'it', name: t('italian') },
+  const languages: { code: Language; name: string; flag: string }[] = [
+    { code: 'en', name: t('english'), flag: '🇬🇧' },
+    { code: 'it', name: t('italian'), flag: '🇮🇹' },
   ];
 
   return (
@@ -24,7 +24,7 @@ const LanguageSwitcher: React.FC = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label={t('switch-language')}>
               <Globe size={20} />
             </Button>
           </DropdownMenuTrigger>
@@ -38,9 +38,10 @@ const LanguageSwitcher: React.FC = () => {
           <DropdownMenuItem
             key={lang.code}
             onClick={() => setLanguage(lang.code)}
-            className={language === lang.code ? "bg-gray-100" : ""}
+            className={`flex items-center gap-2 ${language === lang.code ? "bg-gray-100" : ""}`}
           >
-            {lang.name}
+            <span>{lang.flag}</span>
+            <span>{lang.name}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

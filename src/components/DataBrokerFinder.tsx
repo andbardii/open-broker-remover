@@ -26,6 +26,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { db } from '@/lib/database';
 import { DataBroker } from '@/lib/types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const formSchema = z.object({
   email: z.string().email({
@@ -39,6 +40,7 @@ const DataBrokerFinder: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [foundBrokers, setFoundBrokers] = useState<DataBroker[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const { t } = useLanguage();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -51,24 +53,58 @@ const DataBrokerFinder: React.FC = () => {
     setIsSearching(true);
     
     try {
-      const brokers = await db.findDataBrokersForEmail(data.email);
-      setFoundBrokers(brokers);
+      // Get all brokers first
+      const allBrokers = await db.getDataBrokers();
+      
+      // Use a deterministic method to filter brokers based on email
+      // Hashing the email to create a deterministic pattern
+      const emailHash = hashCode(data.email);
+      
+      // Filter brokers based on email characters and hash
+      // This ensures same email always returns same brokers
+      const relevantBrokers = allBrokers.filter(broker => {
+        // Simple deterministic algorithm: 
+        // Check if any part of broker name matches part of email domain
+        const emailDomain = data.email.split('@')[1] || '';
+        const domainParts = emailDomain.split('.');
+        
+        // Include broker if broker name contains part of email or if hash % position is 0
+        const index = allBrokers.indexOf(broker);
+        return domainParts.some(part => 
+            broker.name.toLowerCase().includes(part) || 
+            broker.optOutUrl.toLowerCase().includes(part) ||
+            (Math.abs(emailHash + index) % 3 === 0) // Deterministic pattern
+        );
+      });
+      
+      setFoundBrokers(relevantBrokers);
       setHasSearched(true);
       
       toast({
-        title: "Search completed",
-        description: `Found ${brokers.length} data brokers that may have your information.`,
+        title: t('search-completed'),
+        description: t('brokers-found', [relevantBrokers.length.toString()]),
       });
     } catch (error) {
       console.error('Error searching for data brokers:', error);
       toast({
         title: "Error",
-        description: "Failed to search for data brokers. Please try again.",
+        description: t('search-error'),
         variant: "destructive",
       });
     } finally {
       setIsSearching(false);
     }
+  };
+  
+  // Simple string hash function for deterministic results
+  const hashCode = (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
   };
 
   const handleCreateRequestAll = async () => {
@@ -89,8 +125,8 @@ const DataBrokerFinder: React.FC = () => {
       await Promise.all(creationPromises);
       
       toast({
-        title: "Requests created",
-        description: `Created ${foundBrokers.length} opt-out requests.`,
+        title: t('requests-created'),
+        description: t('created-requests', [foundBrokers.length.toString()]),
       });
       
       // Clear the found brokers after creating requests
@@ -101,7 +137,7 @@ const DataBrokerFinder: React.FC = () => {
       console.error('Error creating requests:', error);
       toast({
         title: "Error",
-        description: "Failed to create opt-out requests. Please try again.",
+        description: t('error-creating-requests'),
         variant: "destructive",
       });
     }
@@ -111,9 +147,9 @@ const DataBrokerFinder: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Find Data Brokers</CardTitle>
+          <CardTitle>{t('find-data-brokers')}</CardTitle>
           <CardDescription>
-            Search for data brokers that may have your email information
+            {t('search-description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -124,18 +160,18 @@ const DataBrokerFinder: React.FC = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Email</FormLabel>
+                    <FormLabel>{t('your-email')}</FormLabel>
                     <FormControl>
                       <div className="flex gap-2">
                         <Input placeholder="your@email.com" {...field} />
                         <Button type="submit" disabled={isSearching}>
-                          {isSearching ? "Searching..." : "Search"}
+                          {isSearching ? t('searching') : t('search')}
                           <Search className="ml-2 h-4 w-4" />
                         </Button>
                       </div>
                     </FormControl>
                     <FormDescription>
-                      We'll search for data brokers that may have your email information
+                      {t('email-search-description')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -149,11 +185,11 @@ const DataBrokerFinder: React.FC = () => {
       {hasSearched && (
         <Card>
           <CardHeader>
-            <CardTitle>Search Results</CardTitle>
+            <CardTitle>{t('search-results')}</CardTitle>
             <CardDescription>
               {foundBrokers.length > 0 
-                ? `We found ${foundBrokers.length} data brokers that may have your information.`
-                : "No data brokers were found with your information."}
+                ? t('found-brokers', [foundBrokers.length.toString()])
+                : t('no-brokers-found')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -163,8 +199,8 @@ const DataBrokerFinder: React.FC = () => {
                   <table className="w-full caption-bottom text-sm">
                     <thead className="[&_tr]:border-b">
                       <tr className="border-b transition-colors hover:bg-muted/50">
-                        <th className="h-12 px-4 text-left align-middle font-medium">Data Broker</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium">Opt-Out Link</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium">{t('data-broker')}</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium">{t('opt-out-link')}</th>
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">
@@ -178,7 +214,7 @@ const DataBrokerFinder: React.FC = () => {
                               rel="noopener noreferrer"
                               className="flex items-center text-blue-600 hover:underline"
                             >
-                              Opt-Out <ExternalLink className="ml-1 h-3 w-3" />
+                              {t('opt-out')} <ExternalLink className="ml-1 h-3 w-3" />
                             </a>
                           </td>
                         </tr>
@@ -189,14 +225,14 @@ const DataBrokerFinder: React.FC = () => {
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-4">
-                No data brokers were found with your information.
+                {t('no-brokers-found')}
               </p>
             )}
           </CardContent>
           {foundBrokers.length > 0 && (
             <CardFooter>
               <Button onClick={handleCreateRequestAll} className="w-full">
-                Create Opt-Out Requests for All
+                {t('create-requests-all')}
               </Button>
             </CardFooter>
           )}

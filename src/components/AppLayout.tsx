@@ -12,7 +12,8 @@ import {
   Menu, 
   X,
   Database,
-  HelpCircle
+  HelpCircle,
+  Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -60,7 +61,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
             </Button>
           )}
-          <h1 className="text-xl font-bold">AutoPrivacy</h1>
+          <h1 className="text-xl font-bold">Open Broker Remover</h1>
         </div>
         <div className="flex items-center">
           <LanguageSwitcher />
@@ -115,6 +116,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               >
                 <ListPlus className="mr-2 h-4 w-4" />
                 {t('new-request')}
+              </Button>
+              <Button 
+                variant={activeTab === "find-brokers" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("find-brokers")}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                {t('find-brokers')}
               </Button>
               <Button 
                 variant={activeTab === "requests" ? "default" : "ghost"} 

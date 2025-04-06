@@ -14,6 +14,7 @@ import { emailService } from '@/lib/email';
 import { DataRequest, EmailConfig } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -21,6 +22,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isContentLoading, setIsContentLoading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const { t } = useLanguage();
   
   useEffect(() => {
     // Check if it's the first visit
@@ -58,44 +60,101 @@ const Index = () => {
     }, 300);
   };
   
-  //TODO Check for alternatives
-  //TODO Mock method...
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleCreateRequest = async (data: any) => {
+  // Improved handleCreateRequest with proper error handling and validation
+  const handleCreateRequest = async (data: {
+    brokerName: string;
+    brokerUrl: string;
+    userEmail: string;
+    additionalInfo?: string;
+  }) => {
     setIsContentLoading(true);
+    
+    if (!data.brokerName || !data.userEmail) {
+      toast({
+        title: "Validation Error",
+        description: "Broker name and email are required",
+        variant: "destructive",
+      });
+      setIsContentLoading(false);
+      return;
+    }
+    
     try {
+      // Create the request in the database
       const newRequest = await db.createRequest({
         brokerName: data.brokerName,
         status: 'pending',
         userEmail: data.userEmail,
+        // Store optional metadata as JSON
+        metadata: JSON.stringify({
+          brokerUrl: data.brokerUrl,
+          additionalInfo: data.additionalInfo || '',
+          dateCreated: new Date().toISOString(),
+        }),
       });
       
+      // Update the local state with the new request
       setRequests(prevRequests => [...prevRequests, newRequest]);
+      
+      // Navigate to the requests tab to show the new request
       handleTabChange("requests");
       
       toast({
         title: "Request created",
         description: `New request for ${data.brokerName} has been created`,
       });
+      
+      // Return the created request for any additional processing
+      return newRequest;
     } catch (error) {
       console.error('Error creating request:', error);
       toast({
         title: "Error",
-        description: "Failed to create request",
+        description: "Failed to create request. Please try again.",
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsContentLoading(false);
     }
   };
   
-  //TODO Mock method...
+  // Improved handleUpdateRequest with proper validation and status tracking
   const handleUpdateRequest = async (id: string, updates: Partial<DataRequest>) => {
     setIsContentLoading(true);
+    
+    // Validate the request ID
+    if (!id) {
+      toast({
+        title: "Error",
+        description: "Invalid request ID",
+        variant: "destructive",
+      });
+      setIsContentLoading(false);
+      return null;
+    }
+    
     try {
-      const updatedRequest = await db.updateRequest(id, updates);
+      // Find the existing request to get its current state
+      const existingRequest = requests.find(req => req.id === id);
+      if (!existingRequest) {
+        throw new Error("Request not found");
+      }
+      
+      // Apply updates and add metadata about the change
+      const metadata = {
+        ...JSON.parse(existingRequest.metadata || '{}'),
+        lastUpdated: new Date().toISOString(),
+        previousStatus: existingRequest.status,
+      };
+      
+      const updatedRequest = await db.updateRequest(id, {
+        ...updates,
+        metadata: JSON.stringify(metadata),
+      });
       
       if (updatedRequest) {
+        // Update the local state
         setRequests(prevRequests => 
           prevRequests.map(req => 
             req.id === id ? updatedRequest : req
@@ -106,14 +165,19 @@ const Index = () => {
           title: "Request updated",
           description: `Request has been updated to ${updates.status}`,
         });
+        
+        return updatedRequest;
+      } else {
+        throw new Error("Failed to update request");
       }
     } catch (error) {
       console.error('Error updating request:', error);
       toast({
         title: "Error",
-        description: "Failed to update request",
+        description: "Failed to update request. Please try again.",
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsContentLoading(false);
     }
@@ -147,6 +211,7 @@ const Index = () => {
   
   const handleCloseTutorial = () => {
     setShowTutorial(false);
+    localStorage.setItem('tutorial_completed', 'true');
   };
   
   const renderContent = () => {
@@ -190,7 +255,7 @@ const Index = () => {
         return (
           <>
             <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">New Request</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{t('new-request')}</h2>
               <p className="text-muted-foreground">
                 Create a new data removal request for a data broker
               </p>
@@ -213,7 +278,7 @@ const Index = () => {
         return (
           <>
             <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">Find Data Brokers</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{t('find-brokers')}</h2>
               <p className="text-muted-foreground">
                 Find data brokers that may have your personal information
               </p>
@@ -226,7 +291,7 @@ const Index = () => {
         return (
           <>
             <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">Request Tracking</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{t('request-tracking')}</h2>
               <p className="text-muted-foreground">
                 Track and manage your data removal requests
               </p>
@@ -252,7 +317,7 @@ const Index = () => {
         return (
           <>
             <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">Data Brokers Management</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{t('data-brokers')}</h2>
               <p className="text-muted-foreground">
                 View, add, and delete data brokers in the system
               </p>
@@ -275,7 +340,7 @@ const Index = () => {
         return (
           <>
             <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">Email Settings</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{t('email-settings')}</h2>
               <p className="text-muted-foreground">
                 Configure email settings to monitor responses from data brokers
               </p>
@@ -301,7 +366,7 @@ const Index = () => {
         return (
           <>
             <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">Security Settings</h2>
+              <h2 className="text-3xl font-bold tracking-tight">{t('security')}</h2>
               <p className="text-muted-foreground">
                 Configure security and encryption for your sensitive data
               </p>
