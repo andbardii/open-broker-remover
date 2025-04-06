@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,12 +5,12 @@ import * as z from 'zod';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Search, RefreshCw } from "lucide-react";
 import {
   Form,
   FormControl,
   FormDescription,
-  FormField,
+  FormField as UIFormField,
   FormItem,
   FormLabel,
   FormMessage,
@@ -27,8 +26,9 @@ import { toast } from "@/components/ui/use-toast";
 import { automationService } from '@/lib/automation';
 import { emailService } from '@/lib/email';
 import { db } from '@/lib/database';
-import { DataBroker, AutomationResult } from '@/lib/types';
+import { DataBroker, AutomationResult, FormField as AutomationFormField } from '@/lib/types';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   brokerName: z.string().min(2, {
@@ -40,7 +40,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewRequestFormProps {
-  onRequestCreated: (data: any) => void;
+  onRequestCreated: (data) => void;
 }
 
 const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => {
@@ -51,6 +51,8 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isEmailConfigured, setIsEmailConfigured] = useState(false);
   const [selectedBrokerUrl, setSelectedBrokerUrl] = useState<string>('');
+  const [detectedFields, setDetectedFields] = useState<AutomationFormField[]>([]);
+  const [isDetectingFields, setIsDetectingFields] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -96,6 +98,38 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
     if (selectedBroker) {
       form.setValue('brokerName', selectedBroker.name);
       setSelectedBrokerUrl(selectedBroker.optOutUrl);
+      setDetectedFields([]); // Clear previous fields
+    }
+  };
+
+  const detectFormFields = async () => {
+    if (!selectedBrokerUrl) {
+      toast({
+        title: "No broker selected",
+        description: "Please select a data broker first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsDetectingFields(true);
+    try {
+      const fields = await automationService.detectFormFields(selectedBrokerUrl);
+      setDetectedFields(fields);
+      
+      toast({
+        title: "Form analysis complete",
+        description: `Detected ${fields.length} form fields for this broker.`,
+      });
+    } catch (error) {
+      console.error('Error detecting form fields:', error);
+      toast({
+        title: "Error",
+        description: "Failed to detect form fields. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDetectingFields(false);
     }
   };
 
@@ -122,11 +156,30 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
     setAutomationResult(null);
     
     try {
-      // Use the enhanced automation service to send the request
-      const result = await automationService.sendRequest(selectedBrokerUrl, {
+      // Prepare form data with detected fields
+      const formData: Record<string, string> = {
         email: userEmail,
         additionalInfo: data.additionalInfo || '',
-      });
+      };
+      
+      // If we have detected fields, use them to enhance the request
+      if (detectedFields.length > 0) {
+        // Pre-fill detected fields with appropriate values
+        detectedFields.forEach(field => {
+          if (field.type === 'email') {
+            formData[field.selector] = userEmail;
+          } else if (field.type === 'checkbox' && field.label?.toLowerCase().includes('confirm')) {
+            formData[field.selector] = 'true'; // Auto-check confirmation boxes
+          } else if (field.type === 'text' && field.label?.toLowerCase().includes('name')) {
+            // Extract name from email if possible
+            const nameFromEmail = userEmail.split('@')[0].replace(/[0-9]/g, '').replace(/\./g, ' ');
+            formData[field.selector] = nameFromEmail;
+          }
+        });
+      }
+      
+      // Use the enhanced automation service to send the request
+      const result = await automationService.sendRequest(selectedBrokerUrl, formData);
       
       setAutomationResult(result);
       
@@ -140,6 +193,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
             timestamp: result.timestamp,
             screenshot: result.screenshot,
             optOutUrl: selectedBrokerUrl,
+            detectedFields: detectedFields.length > 0 ? detectedFields.length : 'None detected'
           }),
         });
         
@@ -155,6 +209,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         });
         form.reset();
         setSelectedBrokerUrl('');
+        setDetectedFields([]);
       } else {
         toast({
           title: "Automation failed",
@@ -194,7 +249,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
       )}
       
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
+        <UIFormField
           control={form.control}
           name="brokerName"
           render={({ field }) => (
@@ -226,14 +281,69 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         />
         
         {selectedBrokerUrl && (
-          <div className="px-4 py-2 bg-muted rounded-md">
-            <p className="text-sm text-muted-foreground truncate">
-              <span className="font-medium">Opt-out URL:</span> {selectedBrokerUrl}
+          <div className="px-4 py-3 bg-muted rounded-md">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground truncate">
+                <span className="font-medium">Opt-out URL:</span> {selectedBrokerUrl}
+              </p>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={detectFormFields}
+                disabled={isDetectingFields || isSubmitting}
+                className="ml-4"
+              >
+                {isDetectingFields ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : detectedFields.length > 0 ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Analysis
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Analyze Form
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {detectedFields.length > 0 && (
+          <div className="space-y-4 p-4 border rounded-md">
+            <h3 className="text-md font-medium mb-2">Detected Form Fields</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {detectedFields.map((field, index) => (
+                <div key={index} className="p-3 bg-muted rounded-md">
+                  <p className="font-medium">{field.label || field.selector}</p>
+                  <p className="text-sm text-muted-foreground">Type: {field.type}</p>
+                  {field.options && field.options.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm text-muted-foreground">Options:</p>
+                      <ul className="text-xs ml-4 mt-1">
+                        {field.options.slice(0, 5).map((option, idx) => (
+                          <li key={idx}>{option}</li>
+                        ))}
+                        {field.options.length > 5 && <li>...and {field.options.length - 5} more</li>}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              These fields will be automatically filled when submitting your request.
             </p>
           </div>
         )}
         
-        <FormField
+        <UIFormField
           control={form.control}
           name="additionalInfo"
           render={({ field }) => (

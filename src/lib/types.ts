@@ -1,4 +1,3 @@
-
 // Types for the application
 export interface DataRequest {
   id: string;
@@ -41,7 +40,9 @@ export interface AutomationConfig {
 export interface FormField {
   selector: string;
   value: string;
-  type: 'text' | 'email' | 'checkbox' | 'radio' | 'select' | 'button';
+  type: 'text' | 'email' | 'checkbox' | 'radio' | 'select' | 'button' | 'textarea' | 'password' | 'tel' | 'date' | 'number';
+  label?: string;
+  options?: string[];
 }
 
 export interface AutomationResult {
