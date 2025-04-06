@@ -119,6 +119,9 @@ const DataBrokerFinder: React.FC = () => {
           brokerName: broker.name,
           status: 'pending',
           userEmail: email,
+          metadata: JSON.stringify({
+            optOutUrl: broker.optOutUrl,
+          }),
         })
       );
       

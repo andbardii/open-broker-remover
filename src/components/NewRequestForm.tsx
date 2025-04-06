@@ -34,9 +34,6 @@ const formSchema = z.object({
   brokerName: z.string().min(2, {
     message: "Broker name must be at least 2 characters.",
   }),
-  brokerUrl: z.string().url({
-    message: "Please enter a valid URL.",
-  }),
   additionalInfo: z.string().optional(),
 });
 
@@ -53,12 +50,12 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
   const [automationResult, setAutomationResult] = useState<AutomationResult | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isEmailConfigured, setIsEmailConfigured] = useState(false);
+  const [selectedBrokerUrl, setSelectedBrokerUrl] = useState<string>('');
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       brokerName: '',
-      brokerUrl: '',
       additionalInfo: '',
     },
   });
@@ -98,7 +95,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
     const selectedBroker = dataBrokers.find(broker => broker.id === brokerId);
     if (selectedBroker) {
       form.setValue('brokerName', selectedBroker.name);
-      form.setValue('brokerUrl', selectedBroker.optOutUrl);
+      setSelectedBrokerUrl(selectedBroker.optOutUrl);
     }
   };
 
@@ -112,12 +109,21 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
       return;
     }
     
+    if (!selectedBrokerUrl) {
+      toast({
+        title: "Missing information",
+        description: "Please select a data broker before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     setAutomationResult(null);
     
     try {
       // Use the enhanced automation service to send the request
-      const result = await automationService.sendRequest(data.brokerUrl, {
+      const result = await automationService.sendRequest(selectedBrokerUrl, {
         email: userEmail,
         additionalInfo: data.additionalInfo || '',
       });
@@ -133,6 +139,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
           metadata: JSON.stringify({
             timestamp: result.timestamp,
             screenshot: result.screenshot,
+            optOutUrl: selectedBrokerUrl,
           }),
         });
         
@@ -144,8 +151,10 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         onRequestCreated({
           ...data,
           userEmail,
+          brokerUrl: selectedBrokerUrl,
         });
         form.reset();
+        setSelectedBrokerUrl('');
       } else {
         toast({
           title: "Automation failed",
@@ -168,7 +177,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
   return (
     <Form {...form}>
       {!isEmailConfigured && (
-        <Alert variant="warning" className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             You need to configure your email in Email Settings before creating requests.
@@ -216,26 +225,13 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
           )}
         />
         
-        <FormField
-          control={form.control}
-          name="brokerUrl"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Opt-Out URL</FormLabel>
-              <FormControl>
-                <Input 
-                  placeholder="https://example.com/opt-out" 
-                  {...field} 
-                  disabled={isSubmitting}
-                />
-              </FormControl>
-              <FormDescription>
-                The URL where the opt-out form is located
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {selectedBrokerUrl && (
+          <div className="px-4 py-2 bg-muted rounded-md">
+            <p className="text-sm text-muted-foreground truncate">
+              <span className="font-medium">Opt-out URL:</span> {selectedBrokerUrl}
+            </p>
+          </div>
+        )}
         
         <FormField
           control={form.control}
@@ -259,7 +255,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isSubmitting || !isEmailConfigured}
+          disabled={isSubmitting || !isEmailConfigured || !selectedBrokerUrl}
         >
           {isSubmitting ? (
             <>
