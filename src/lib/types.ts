@@ -84,11 +84,12 @@ export interface SearchHistory {
 
 // Progress tracking
 export interface RemovalProgress {
-  requestId: string;
   steps: RemovalStep[];
-  overallStatus: 'not-started' | 'in-progress' | 'completed' | 'failed';
+  startedAt: string;
   lastUpdated: string;
   estimatedCompletionDate?: string;
+  completedAt?: string;
+  currentStep: number;
 }
 
 export interface RemovalStep {

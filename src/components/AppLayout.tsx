@@ -13,7 +13,8 @@ import {
   Database,
   HelpCircle,
   Search,
-  Settings
+  Settings,
+  Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -93,7 +94,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
         >
           <div className="p-4">
             {/* Remove the navigation heading and close button */}
-            <nav className="space-y-1">
+            <nav className="flex flex-col space-y-2">
               <Button 
                 variant={activeTab === "dashboard" ? "default" : "ghost"} 
                 className="w-full justify-start" 
@@ -102,14 +103,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 <LayoutDashboard className="mr-2 h-4 w-4" />
                 {t('dashboard')}
               </Button>
-              <Button 
-                variant={activeTab === "new-request" ? "default" : "ghost"} 
-                className="w-full justify-start" 
-                onClick={() => handleTabChange("new-request")}
-              >
-                <ListPlus className="mr-2 h-4 w-4" />
-                {t('new-request')}
-              </Button>
+              
               <Button 
                 variant={activeTab === "find-brokers" ? "default" : "ghost"} 
                 className="w-full justify-start" 
@@ -118,14 +112,43 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 <Search className="mr-2 h-4 w-4" />
                 {t('find-brokers')}
               </Button>
+              
               <Button 
-                variant={activeTab === "requests" ? "default" : "ghost"} 
+                variant={activeTab === "new-request" ? "default" : "ghost"} 
                 className="w-full justify-start" 
-                onClick={() => handleTabChange("requests")}
+                onClick={() => handleTabChange("new-request")}
+              >
+                <ListPlus className="mr-2 h-4 w-4" />
+                {t('new-request')}
+              </Button>
+              
+              <Button 
+                variant={activeTab === "track-requests" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("track-requests")}
               >
                 <Clock className="mr-2 h-4 w-4" />
-                {t('request-tracking')}
+                {t('track-requests')}
               </Button>
+              
+              <Button 
+                variant={activeTab === "email-monitor" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("email-monitor")}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                {t('email-monitor')}
+              </Button>
+              
+              <Button 
+                variant={activeTab === "privacy-scan" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("privacy-scan")}
+              >
+                <Shield className="mr-2 h-4 w-4" />
+                {t('privacy-scan')}
+              </Button>
+              
               <Button 
                 variant={activeTab === "data-brokers" ? "default" : "ghost"} 
                 className="w-full justify-start" 
@@ -134,7 +157,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({
                 <Database className="mr-2 h-4 w-4" />
                 {t('data-brokers')}
               </Button>
+              
+              <Button 
+                variant={activeTab === "about" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("about")}
+              >
+                <Info className="mr-2 h-4 w-4" />
+                {t('about')}
+              </Button>
+              
               <Separator className="my-4" />
+              
               <Button 
                 variant={activeTab === "settings" ? "default" : "ghost"} 
                 className="w-full justify-start" 
