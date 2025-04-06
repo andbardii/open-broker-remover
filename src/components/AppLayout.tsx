@@ -92,14 +92,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
           )}
         >
           <div className="p-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-semibold text-lg">{t('navigation')}</h2>
-              {isMobile && (
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
-                  <X size={18} />
-                </Button>
-              )}
-            </div>
+            {/* Remove the navigation heading and close button */}
             <nav className="space-y-1">
               <Button 
                 variant={activeTab === "dashboard" ? "default" : "ghost"} 
