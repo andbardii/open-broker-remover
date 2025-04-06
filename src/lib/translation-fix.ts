@@ -1,12 +1,16 @@
-
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
- * This is a utility function to help with translation issues in DataBrokerFinder.tsx
- * It should be used to ensure we're calling the t() function correctly with a single argument
+ * Custom hook for formatting translations with variables
  */
-export const formatTranslationWithVariables = (key: string, variables: Record<string, any>) => {
+export const useTranslationWithVariables = () => {
   const { t } = useLanguage();
-  // Pass a single argument that contains both the key and the variable values
-  return t({ key, variables });
+  
+  const formatWithVariables = (key: string, variables: Record<string, string | number>) => {
+    // Convert variables to string array for t function
+    const params = Object.values(variables).map(v => String(v));
+    return t(key, params);
+  };
+
+  return { formatWithVariables };
 };

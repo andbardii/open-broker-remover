@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Globe } from 'lucide-react';
@@ -9,7 +8,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useLanguage, Language } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Language } from '@/contexts/translations';
 
 const LanguageSwitcher: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
