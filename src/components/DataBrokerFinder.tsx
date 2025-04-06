@@ -82,7 +82,7 @@ const DataBrokerFinder: React.FC = () => {
       
       toast({
         title: t('search-completed'),
-        description: t('brokers-found', { count: relevantBrokers.length.toString() }),
+        description: t('brokers-found', [relevantBrokers.length.toString()]),
       });
     } catch (error) {
       console.error('Error searching for data brokers:', error);
@@ -126,7 +126,7 @@ const DataBrokerFinder: React.FC = () => {
       
       toast({
         title: t('requests-created'),
-        description: t('created-requests', { count: foundBrokers.length.toString() }),
+        description: t('created-requests', [foundBrokers.length.toString()]),
       });
       
       // Clear the found brokers after creating requests
@@ -188,7 +188,7 @@ const DataBrokerFinder: React.FC = () => {
             <CardTitle>{t('search-results')}</CardTitle>
             <CardDescription>
               {foundBrokers.length > 0 
-                ? t('found-brokers', { count: foundBrokers.length.toString() })
+                ? t('found-brokers', [foundBrokers.length.toString()])
                 : t('no-brokers-found')}
             </CardDescription>
           </CardHeader>
