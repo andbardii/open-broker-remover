@@ -6,7 +6,7 @@ import * as z from 'zod';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -25,8 +25,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { automationService } from '@/lib/automation';
+import { emailService } from '@/lib/email';
 import { db } from '@/lib/database';
 import { DataBroker, AutomationResult } from '@/lib/types';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   brokerName: z.string().min(2, {
@@ -35,16 +37,13 @@ const formSchema = z.object({
   brokerUrl: z.string().url({
     message: "Please enter a valid URL.",
   }),
-  userEmail: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
   additionalInfo: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface NewRequestFormProps {
-  onRequestCreated: (data: FormValues) => void;
+  onRequestCreated: (data: any) => void;
 }
 
 const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => {
@@ -52,13 +51,14 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
   const [dataBrokers, setDataBrokers] = useState<DataBroker[]>([]);
   const [isLoadingBrokers, setIsLoadingBrokers] = useState(true);
   const [automationResult, setAutomationResult] = useState<AutomationResult | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isEmailConfigured, setIsEmailConfigured] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       brokerName: '',
       brokerUrl: '',
-      userEmail: '',
       additionalInfo: '',
     },
   });
@@ -80,7 +80,18 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
       }
     };
     
+    const loadEmailConfig = () => {
+      const config = emailService.getConfig();
+      if (config && config.username) {
+        setUserEmail(config.username);
+        setIsEmailConfigured(true);
+      } else {
+        setIsEmailConfigured(false);
+      }
+    };
+    
     loadDataBrokers();
+    loadEmailConfig();
   }, []);
 
   const handleBrokerChange = (brokerId: string) => {
@@ -92,13 +103,22 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
   };
 
   const onSubmit = async (data: FormValues) => {
+    if (!isEmailConfigured || !userEmail) {
+      toast({
+        title: "Email not configured",
+        description: "Please configure your email in Email Settings before creating a request.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     setAutomationResult(null);
     
     try {
       // Use the enhanced automation service to send the request
       const result = await automationService.sendRequest(data.brokerUrl, {
-        email: data.userEmail,
+        email: userEmail,
         additionalInfo: data.additionalInfo || '',
       });
       
@@ -109,7 +129,7 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         await db.createRequest({
           brokerName: data.brokerName,
           status: 'sent',
-          userEmail: data.userEmail,
+          userEmail: userEmail,
           metadata: JSON.stringify({
             timestamp: result.timestamp,
             screenshot: result.screenshot,
@@ -121,7 +141,10 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
           description: `Request to ${data.brokerName} has been sent.`,
         });
         
-        onRequestCreated(data);
+        onRequestCreated({
+          ...data,
+          userEmail,
+        });
         form.reset();
       } else {
         toast({
@@ -144,6 +167,23 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
 
   return (
     <Form {...form}>
+      {!isEmailConfigured && (
+        <Alert variant="warning" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You need to configure your email in Email Settings before creating requests.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {isEmailConfigured && userEmail && (
+        <div className="mb-6 px-4 py-3 bg-muted rounded-md">
+          <p className="text-sm text-muted-foreground">
+            Requests will be sent using your configured email: <span className="font-medium">{userEmail}</span>
+          </p>
+        </div>
+      )}
+      
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
@@ -199,28 +239,6 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
         
         <FormField
           control={form.control}
-          name="userEmail"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Your Email</FormLabel>
-              <FormControl>
-                <Input 
-                  type="email" 
-                  placeholder="your@email.com" 
-                  {...field} 
-                  disabled={isSubmitting}
-                />
-              </FormControl>
-              <FormDescription>
-                The email to use for the request and receiving responses
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
           name="additionalInfo"
           render={({ field }) => (
             <FormItem>
@@ -238,7 +256,11 @@ const NewRequestForm: React.FC<NewRequestFormProps> = ({ onRequestCreated }) => 
           )}
         />
         
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isSubmitting || !isEmailConfigured}
+        >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
