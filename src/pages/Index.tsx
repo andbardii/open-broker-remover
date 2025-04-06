@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/components/Dashboard';
@@ -9,6 +8,7 @@ import SecuritySetup from '@/components/SecuritySetup';
 import DataBrokerManager from '@/components/DataBrokerManager';
 import DataBrokerFinder from '@/components/DataBrokerFinder';
 import WelcomeTutorial from '@/components/WelcomeTutorial';
+import Settings from '@/pages/Settings';
 import { db } from '@/lib/database';
 import { emailService } from '@/lib/email';
 import { DataRequest, EmailConfig } from '@/lib/types';
@@ -336,44 +336,14 @@ const Index = () => {
           </>
         );
         
-      case "email-settings":
-        return (
-          <>
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">{t('email-settings')}</h2>
-              <p className="text-muted-foreground">
-                Configure email settings to monitor responses from data brokers
-              </p>
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Configuration</CardTitle>
-                <CardDescription>
-                  Enter your email credentials to automatically process broker responses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <EmailSetup 
-                  onSetupComplete={handleEmailSetup}
-                  initialConfig={emailService.getConfig()}
-                />
-              </CardContent>
-            </Card>
-          </>
-        );
+      case "settings":
+        return <Settings onTabChange={handleTabChange} />;
         
+      case "email-settings":
       case "security":
-        return (
-          <>
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">{t('security')}</h2>
-              <p className="text-muted-foreground">
-                Configure security and encryption for your sensitive data
-              </p>
-            </div>
-            <SecuritySetup onSetupComplete={handleSecuritySetup} />
-          </>
-        );
+        // Redirect to the combined settings page
+        handleTabChange("settings");
+        return null;
         
       default:
         return null;

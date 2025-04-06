@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // Define available languages
@@ -30,11 +29,21 @@ const translations: Record<Language, Record<string, string>> = {
     'find-brokers': 'Find Brokers',
     'email-settings': 'Email Settings',
     'security': 'Security',
+    'settings': 'Settings',
     // General UI
     'show-tutorial': 'Show tutorial',
     'switch-language': 'Switch language',
     'english': 'English',
     'italian': 'Italian',
+    // Settings page
+    'settings-description': 'Configure application settings and security options',
+    'application-settings': 'Application Settings',
+    'configure-app-settings': 'Configure your email and security settings',
+    'email-configuration': 'Email Configuration',
+    'email-configuration-description': 'Enter your email credentials to process broker responses',
+    'security-settings': 'Security Settings',
+    'security-encryption': 'Security & Encryption',
+    'security-encryption-description': 'Configure encryption for your sensitive data',
     // Security
     'data-encryption': 'Data Encryption',
     'configure-encryption': 'Configure encryption settings for sensitive data',
@@ -74,11 +83,21 @@ const translations: Record<Language, Record<string, string>> = {
     'find-brokers': 'Trova Broker',
     'email-settings': 'Impostazioni Email',
     'security': 'Sicurezza',
+    'settings': 'Impostazioni',
     // General UI
     'show-tutorial': 'Mostra tutorial',
     'switch-language': 'Cambia lingua',
     'english': 'Inglese',
     'italian': 'Italiano',
+    // Settings page
+    'settings-description': 'Configura impostazioni dell\'applicazione e opzioni di sicurezza',
+    'application-settings': 'Impostazioni Applicazione',
+    'configure-app-settings': 'Configura le tue impostazioni email e di sicurezza',
+    'email-configuration': 'Configurazione Email',
+    'email-configuration-description': 'Inserisci le tue credenziali email per elaborare le risposte dei broker',
+    'security-settings': 'Impostazioni di Sicurezza',
+    'security-encryption': 'Sicurezza & Crittografia',
+    'security-encryption-description': 'Configura la crittografia per i tuoi dati sensibili',
     // Security
     'data-encryption': 'Crittografia Dati',
     'configure-encryption': 'Configura impostazioni di crittografia per dati sensibili',

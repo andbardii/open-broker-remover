@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,8 @@ import {
   X,
   Database,
   HelpCircle,
-  Search
+  Search,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -136,20 +136,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               </Button>
               <Separator className="my-4" />
               <Button 
-                variant={activeTab === "email-settings" ? "default" : "ghost"} 
+                variant={activeTab === "settings" ? "default" : "ghost"} 
                 className="w-full justify-start" 
-                onClick={() => handleTabChange("email-settings")}
+                onClick={() => handleTabChange("settings")}
               >
-                <Mail className="mr-2 h-4 w-4" />
-                {t('email-settings')}
-              </Button>
-              <Button 
-                variant={activeTab === "security" ? "default" : "ghost"} 
-                className="w-full justify-start" 
-                onClick={() => handleTabChange("security")}
-              >
-                <Shield className="mr-2 h-4 w-4" />
-                {t('security')}
+                <Settings className="mr-2 h-4 w-4" />
+                {t('settings')}
               </Button>
             </nav>
           </div>
