@@ -43,6 +43,11 @@ RUN npm install --omit=dev
 # Create data directory
 RUN mkdir -p /app/data
 
+# Create a non-root user and switch to it
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000

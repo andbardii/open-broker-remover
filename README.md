@@ -13,6 +13,7 @@ Il progetto è ancora in fase di sviluppo ed è nato dal desiderio di costruire 
 ## Indice
 - [Funzionalità Principali](#funzionalita-principali)
 - [Tecnologie Utilizzate](#tecnologie-utilizzate)
+- [Sistema di Crittografia](#sistema-di-crittografia)
 - [Esecuzione con Docker](#esecuzione-con-docker)
 - [Sviluppo Locale](#sviluppo-locale)
 - [Licenza](#licenza)
@@ -23,6 +24,7 @@ Il progetto è ancora in fase di sviluppo ed è nato dal desiderio di costruire 
 - **Gestione Efficiente**: Ottimizzazione dei processi per garantire velocità e affidabilità.
 - **Compatibilità Multipiattaforma**: Supporta ambienti Windows, macOS e Linux tramite Docker.
 - **Persistenza dei Dati**: Utilizza SQLite per salvare i dati in modo locale e sicuro.
+- **Crittografia End-to-End**: Protezione dei dati sensibili con crittografia AES-256-GCM e gestione sicura delle chiavi.
 
 ## Tecnologie Utilizzate
 Il progetto è costruito utilizzando le seguenti tecnologie:
@@ -36,9 +38,37 @@ Il progetto è costruito utilizzando le seguenti tecnologie:
   - Node.js con Express
   - TypeScript
   - Better-SQLite3 per la gestione locale del database
-  - Crittografia locale per la protezione dei dati sensibili
+  - Crittografia AES-256-GCM per la protezione dei dati sensibili
+- **Sicurezza**:
+  - Helmet per le intestazioni HTTP di sicurezza
+  - Content Security Policy per prevenire XSS
+  - Rate limiting per prevenire attacchi di forza bruta
+  - Container non-root per l'esecuzione Docker
 - **Containerizzazione**:
   - Docker e Docker Compose per la distribuzione
+
+## Sistema di Crittografia
+L'applicazione include un sistema di crittografia completo per proteggere i dati sensibili memorizzati localmente:
+
+### Caratteristiche della Crittografia
+- **Standard di Cifratura**: AES-256-GCM per una sicurezza di livello militare
+- **Gestione delle Chiavi**: Generazione sicura e storage isolato delle chiavi di crittografia
+- **Validazione delle Chiavi**: Test automatico per garantire l'integrità delle chiavi
+- **Persistenza Sicura**: Le chiavi vengono salvate in volumi Docker isolati con permessi restrittivi
+- **Backup delle Chiavi**: Esportazione e importazione sicura delle chiavi per il backup
+
+### Funzionamento della Crittografia
+1. **Avvio Iniziale**: Al primo avvio, il sistema genera automaticamente una nuova chiave di crittografia
+2. **Avvii Successivi**: Il sistema cerca la chiave esistente e la utilizza per decifrare i dati
+3. **Controllo Integrità**: Viene eseguito un test di validazione per verificare che la chiave sia funzionante
+4. **Crittografia Opt-in**: La crittografia può essere abilitata o disabilitata dall'utente
+
+### API di Crittografia
+L'applicazione fornisce endpoint API per la gestione della crittografia:
+- `/api/encryption/status`: Verifica lo stato della crittografia
+- `/api/encryption/enable`: Abilita o disabilita la crittografia
+- `/api/encryption/export-key`: Esporta la chiave per il backup (protetta da rate limiting)
+- `/api/encryption/import-key`: Importa una chiave precedentemente esportata
 
 ## Esecuzione con Docker
 L'applicazione può essere facilmente eseguita utilizzando Docker, che incapsula sia il frontend che il backend in un unico container:
@@ -61,6 +91,11 @@ L'applicazione può essere facilmente eseguita utilizzando Docker, che incapsula
 
 4. **Gestione dei dati**:
    I dati sono persistenti grazie al volume Docker `open-broker-data` che viene creato automaticamente. Questo garantisce che i dati non vengano persi tra i riavvii del container.
+
+5. **Sicurezza del Container**:
+   - L'applicazione viene eseguita come utente non-root per una maggiore sicurezza
+   - Il container è limitato a connettersi solo a localhost (127.0.0.1)
+   - Le intestazioni di sicurezza HTTP sono configurate per prevenire attacchi comuni
 
 ## Sviluppo Locale
 

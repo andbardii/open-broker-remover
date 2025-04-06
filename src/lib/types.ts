@@ -23,12 +23,34 @@ export interface SecurityConfig {
   keyGenerated: boolean;
 }
 
-// New type for data brokers
+// Enhanced DataBroker interface with additional information
 export interface DataBroker {
   id: string;
   name: string;
   optOutUrl: string;
+  category: BrokerCategory;
+  optOutMethod: 'form' | 'email' | 'api' | 'manual';
+  dataTypes: string[];
+  difficulty: 'easy' | 'medium' | 'hard';
+  responseTime?: string;
+  region?: string[];
+  privacyLawReference?: string[];
+  isPremium?: boolean;
 }
+
+// Categories of data brokers
+export type BrokerCategory = 
+  'people-search' | 
+  'credit-reporting' | 
+  'marketing' | 
+  'background-check' |
+  'social-media' |
+  'advertising' |
+  'risk-management' |
+  'insurance' |
+  'financial' |
+  'personal-data' |
+  'other';
 
 // New types for automation
 export interface AutomationConfig {
@@ -50,4 +72,29 @@ export interface AutomationResult {
   message: string;
   screenshot?: string; // Base64 encoded screenshot
   timestamp: string;
+}
+
+// Search history for tracking preferences
+export interface SearchHistory {
+  email: string;
+  timestamp: string;
+  foundBrokers: number;
+  requestsMade: number;
+}
+
+// Progress tracking
+export interface RemovalProgress {
+  requestId: string;
+  steps: RemovalStep[];
+  overallStatus: 'not-started' | 'in-progress' | 'completed' | 'failed';
+  lastUpdated: string;
+  estimatedCompletionDate?: string;
+}
+
+export interface RemovalStep {
+  name: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  startTime?: string;
+  completionTime?: string;
+  notes?: string;
 }

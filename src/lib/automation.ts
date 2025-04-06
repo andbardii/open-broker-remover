@@ -1,5 +1,17 @@
-import { AutomationConfig, FormField, AutomationResult } from './types';
+import { AutomationConfig, FormField, AutomationResult, BrokerCategory, RemovalProgress } from './types';
 import { securityService } from './security';
+import { db } from './database';
+
+// Define request metadata interface
+interface RequestMetadata {
+  progress?: RemovalProgress;
+  category?: string;
+  difficulty?: string;
+  optOutUrl?: string;
+  processedAt?: string;
+  screenshot?: string;
+  [key: string]: unknown;
+}
 
 // In a real desktop app, we would use the actual puppeteer package
 // Since this is a web app, we'll create a more compatible implementation 
@@ -326,6 +338,212 @@ export class AutomationService {
     
     this.config = { ...this.config, ...sanitizedConfig };
     console.log('[AutomationService] Configuration updated:', this.config);
+  }
+
+  /**
+   * Enhanced method to track removal progress
+   */
+  async trackRemovalProgress(requestId: string): Promise<RemovalProgress> {
+    console.log(`[AutomationService] Tracking progress for request ${requestId}`);
+    
+    try {
+      // Get the request from the database
+      const request = await db.getRequestById(requestId);
+      if (!request) {
+        throw new Error('Request not found');
+      }
+      
+      // Parse metadata safely with proper typing
+      let metadata: RequestMetadata = {};
+      if (request.metadata) {
+        try {
+          metadata = JSON.parse(request.metadata) as RequestMetadata;
+        } catch (e) {
+          console.error('Failed to parse request metadata:', e);
+        }
+      }
+      
+      // Get existing progress from metadata or initialize new progress
+      const progress: RemovalProgress = metadata.progress || {
+        requestId,
+        steps: [
+          { name: 'request_creation', status: 'completed', startTime: request.dateCreated, completionTime: request.dateCreated },
+          { name: 'validation', status: 'pending' },
+          { name: 'broker_communication', status: 'pending' },
+          { name: 'confirmation', status: 'pending' }
+        ],
+        overallStatus: 'in-progress',
+        lastUpdated: new Date().toISOString()
+      };
+      
+      // Calculate estimated completion date based on broker category and difficulty
+      if (!progress.estimatedCompletionDate) {
+        const brokerCategory = metadata.category || 'other';
+        const difficulty = metadata.difficulty || 'medium';
+        
+        // Estimate completion time based on broker type and difficulty
+        const baseTimeInDays = {
+          'people-search': 14,
+          'credit-reporting': 30,
+          'marketing': 21,
+          'background-check': 25,
+          'social-media': 10,
+          'other': 21
+        }[brokerCategory as BrokerCategory] || 21;
+        
+        // Adjust for difficulty
+        const difficultyMultiplier = {
+          'easy': 0.7,
+          'medium': 1.0,
+          'hard': 1.5
+        }[difficulty] || 1.0;
+        
+        const estimatedDays = Math.round(baseTimeInDays * difficultyMultiplier);
+        
+        // Calculate the estimated completion date
+        const completionDate = new Date(request.dateCreated);
+        completionDate.setDate(completionDate.getDate() + estimatedDays);
+        
+        progress.estimatedCompletionDate = completionDate.toISOString();
+      }
+      
+      // Update progress based on the request status
+      if (request.status === 'sent') {
+        // Find the validation step and update it
+        const validationStep = progress.steps.find(step => step.name === 'validation');
+        if (validationStep && validationStep.status === 'pending') {
+          validationStep.status = 'completed';
+          validationStep.completionTime = new Date().toISOString();
+          
+          // Find broker communication step and set it to in-progress
+          const communicationStep = progress.steps.find(step => step.name === 'broker_communication');
+          if (communicationStep) {
+            communicationStep.status = 'in-progress';
+            communicationStep.startTime = new Date().toISOString();
+          }
+        }
+      } else if (request.status === 'responded') {
+        // Update broker communication step
+        const communicationStep = progress.steps.find(step => step.name === 'broker_communication');
+        if (communicationStep && communicationStep.status !== 'completed') {
+          communicationStep.status = 'completed';
+          communicationStep.completionTime = new Date().toISOString();
+          
+          // Find confirmation step and update it
+          const confirmationStep = progress.steps.find(step => step.name === 'confirmation');
+          if (confirmationStep) {
+            confirmationStep.status = 'in-progress';
+            confirmationStep.startTime = new Date().toISOString();
+          }
+        }
+      } else if (request.status === 'completed') {
+        // Update all remaining steps to completed
+        progress.steps.forEach(step => {
+          if (step.status !== 'completed') {
+            step.status = 'completed';
+            step.completionTime = new Date().toISOString();
+          }
+        });
+        
+        progress.overallStatus = 'completed';
+      }
+      
+      // Update the last updated timestamp
+      progress.lastUpdated = new Date().toISOString();
+      
+      // Save progress back to the request
+      metadata.progress = progress;
+      await db.updateRequest(requestId, {
+        metadata: JSON.stringify(metadata)
+      });
+      
+      return progress;
+    } catch (error) {
+      console.error('[AutomationService] Error tracking removal progress:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Method to bulk process removal requests
+   */
+  async processPendingRequests(): Promise<{ processed: number, successes: number, failures: number }> {
+    console.log('[AutomationService] Processing pending removal requests');
+    
+    try {
+      // Get all pending requests
+      const allRequests = await db.getRequests();
+      const pendingRequests = allRequests.filter(req => req.status === 'pending');
+      
+      console.log(`[AutomationService] Found ${pendingRequests.length} pending requests to process`);
+      
+      let successes = 0;
+      let failures = 0;
+      
+      // Process each request
+      for (const request of pendingRequests) {
+        try {
+          // Parse metadata to get the opt-out URL
+          const requestMetadata: RequestMetadata = request.metadata 
+            ? JSON.parse(request.metadata) as RequestMetadata
+            : {};
+          
+          const optOutUrl = requestMetadata.optOutUrl;
+          
+          if (!optOutUrl) {
+            console.error(`[AutomationService] No opt-out URL found for request ${request.id}`);
+            continue;
+          }
+          
+          // Simulate sending the opt-out request
+          console.log(`[AutomationService] Processing request ${request.id} for ${request.brokerName}`);
+          
+          // Create form data for the request
+          const formData = {
+            email: request.userEmail,
+            name: request.userEmail.split('@')[0].replace(/[^a-zA-Z]/g, ' '),
+            requestType: 'Delete My Data',
+            confirmation: 'true'
+          };
+          
+          // Use the sendRequest method to process the request
+          const result = await this.sendRequest(optOutUrl, formData);
+          
+          if (result.success) {
+            // Update request status
+            await db.updateRequest(request.id, {
+              status: 'sent',
+              responseContent: result.message,
+              metadata: JSON.stringify({
+                ...requestMetadata,
+                processedAt: new Date().toISOString(),
+                screenshot: result.screenshot
+              })
+            });
+            
+            // Track progress
+            await this.trackRemovalProgress(request.id);
+            
+            successes++;
+          } else {
+            console.error(`[AutomationService] Failed to process request ${request.id}: ${result.message}`);
+            failures++;
+          }
+        } catch (error) {
+          console.error(`[AutomationService] Error processing request ${request.id}:`, error);
+          failures++;
+        }
+      }
+      
+      return {
+        processed: pendingRequests.length,
+        successes,
+        failures
+      };
+    } catch (error) {
+      console.error('[AutomationService] Error processing pending requests:', error);
+      throw error;
+    }
   }
 }
 

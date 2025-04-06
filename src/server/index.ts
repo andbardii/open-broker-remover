@@ -5,6 +5,7 @@ import path from 'path';
 import { dbService } from './database';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import { encryptionService } from './encryption';
 
 // Create Express server
 const app = express();
@@ -12,7 +13,23 @@ const PORT = process.env.PORT || 3001;
 
 // Security middlewares
 // Apply helmet for security headers
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: []
+    }
+  }
+}));
 
 // Apply rate limiting to all requests
 const generalLimiter = rateLimit({
@@ -98,9 +115,9 @@ app.post('/api/brokers/search', (req, res) => {
 });
 
 // Requests API
-app.get('/api/requests', (req, res) => {
+app.get('/api/requests', async (req, res) => {
   try {
-    const requests = dbService.getRequests();
+    const requests = await dbService.getRequests();
     res.json(requests);
   } catch (error) {
     console.error('Error getting requests:', error);
@@ -108,9 +125,9 @@ app.get('/api/requests', (req, res) => {
   }
 });
 
-app.get('/api/requests/:id', (req, res) => {
+app.get('/api/requests/:id', async (req, res) => {
   try {
-    const request = dbService.getRequestById(req.params.id);
+    const request = await dbService.getRequestById(req.params.id);
     if (request) {
       res.json(request);
     } else {
@@ -122,9 +139,9 @@ app.get('/api/requests/:id', (req, res) => {
   }
 });
 
-app.post('/api/requests', strictLimiter, (req, res) => {
+app.post('/api/requests', strictLimiter, async (req, res) => {
   try {
-    const request = dbService.createRequest(req.body);
+    const request = await dbService.createRequest(req.body);
     res.status(201).json(request);
   } catch (error) {
     console.error('Error creating request:', error);
@@ -132,9 +149,9 @@ app.post('/api/requests', strictLimiter, (req, res) => {
   }
 });
 
-app.put('/api/requests/:id', strictLimiter, (req, res) => {
+app.put('/api/requests/:id', strictLimiter, async (req, res) => {
   try {
-    const request = dbService.updateRequest(req.params.id, req.body);
+    const request = await dbService.updateRequest(req.params.id, req.body);
     if (request) {
       res.json(request);
     } else {
@@ -157,6 +174,69 @@ app.delete('/api/requests/:id', strictLimiter, (req, res) => {
   } catch (error) {
     console.error('Error deleting request:', error);
     res.status(500).json({ error: 'Failed to delete request' });
+  }
+});
+
+// Add Encryption API Routes
+app.get('/api/encryption/status', (req, res) => {
+  try {
+    const status = dbService.getEncryptionStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('Error getting encryption status:', error);
+    res.status(500).json({ error: 'Failed to get encryption status' });
+  }
+});
+
+app.post('/api/encryption/enable', strictLimiter, async (req, res) => {
+  try {
+    const { enable } = req.body;
+    if (typeof enable !== 'boolean') {
+      return res.status(400).json({ error: 'Enable parameter must be a boolean' });
+    }
+    
+    const success = await dbService.enableEncryption(enable);
+    if (success) {
+      res.json({ success: true, enabled: enable });
+    } else {
+      res.status(500).json({ error: 'Failed to change encryption status' });
+    }
+  } catch (error) {
+    console.error('Error updating encryption status:', error);
+    res.status(500).json({ error: 'Failed to update encryption status' });
+  }
+});
+
+app.get('/api/encryption/export-key', strictLimiter, async (req, res) => {
+  try {
+    const key = await dbService.exportEncryptionKey();
+    if (key) {
+      res.json({ key });
+    } else {
+      res.status(404).json({ error: 'No encryption key found' });
+    }
+  } catch (error) {
+    console.error('Error exporting encryption key:', error);
+    res.status(500).json({ error: 'Failed to export encryption key' });
+  }
+});
+
+app.post('/api/encryption/import-key', strictLimiter, async (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ error: 'Valid key is required' });
+    }
+    
+    const success = await dbService.importEncryptionKey(key);
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ error: 'Failed to import encryption key' });
+    }
+  } catch (error) {
+    console.error('Error importing encryption key:', error);
+    res.status(500).json({ error: 'Failed to import encryption key' });
   }
 });
 
