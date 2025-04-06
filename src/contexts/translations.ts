@@ -63,6 +63,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'opt-out-link': 'Opt-Out Link',
     'opt-out': 'Opt-Out',
     'create-requests-all': 'Create Opt-Out Requests for All',
+    // New data indicator translations
+    'has-data': 'Data Status',
+    'likely-has-data': 'Likely has your data',
+    'might-have-data': 'Might have your data',
   },
   it: {
     // App title
@@ -124,5 +128,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'opt-out-link': 'Link Opt-Out',
     'opt-out': 'Opt-Out',
     'create-requests-all': 'Crea Richieste di Opt-Out per Tutti',
+    // New data indicator translations
+    'has-data': 'Stato Dati',
+    'likely-has-data': 'Probabilmente ha i tuoi dati',
+    'might-have-data': 'Potrebbe avere i tuoi dati',
   }
 }; 

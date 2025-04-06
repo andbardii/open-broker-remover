@@ -532,147 +532,88 @@ export const dbService = {
   
   // Enhanced method for finding data brokers based on email
   findDataBrokersForEmail: async (email: string): Promise<DataBroker[]> => {
-    console.log(`Finding data brokers for email: ${email}`);
+    const brokers = await dbService.getDataBrokers();
     
-    // Input validation - ensure email is a string and has a reasonable length
-    if (typeof email !== 'string' || email.length > 256) {
-      console.error('Invalid email input');
-      return [];
-    }
+    // Extract domain from email
+    const domain = email.split('@')[1].toLowerCase();
     
-    // Get all brokers first
-    const allBrokers = dbService.getDataBrokers();
-    
-    // Safely extract domain parts for intelligent broker matching
-    const emailParts = email.split('@');
-    if (emailParts.length !== 2) {
-      console.error('Invalid email format');
-      return [];
-    }
-    
-    const domain = emailParts[1].toLowerCase();
-    const username = emailParts[0].toLowerCase();
-    
-    // Extract domain components for better matching
-    const domainParts = domain.split('.');
-    const topLevelDomain = domainParts[domainParts.length - 1]; // com, org, etc.
-    const secondLevelDomain = domainParts.length > 1 ? domainParts[domainParts.length - 2] : ''; // gmail, yahoo, etc.
-    
-    // Define hashCode function for deterministic selection
-    const hashCode = (str: string): number => {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash |= 0; // Convert to 32bit integer
-      }
-      return Math.abs(hash);
-    };
-    
-    // Email hash for deterministic selection
-    const emailHash = hashCode(email);
-    
-    // Score brokers based on relevance to the email and user profile
-    const scoredBrokers = allBrokers.map(broker => {
-      let score = 0;
-      const brokerNameLower = broker.name.toLowerCase();
+    // Score brokers based on various factors to create a deterministic but varied set of results
+    const scoredBrokers = brokers.map(broker => {
+      // Create a hash from email and broker name for deterministic selection
+      const emailHash = dbService.hashCode(email + broker.name);
       
-      // Direct match with domain parts scores higher
-      if (brokerNameLower.includes(secondLevelDomain) && secondLevelDomain.length > 3) {
-        score += 10;
-      }
+      // Base score derived from hash (0-50 range)
+      let score = Math.abs(emailHash % 51);
       
-      // Initialize category weights
-      const categoryWeights: Record<BrokerCategory, number> = {
-        'people-search': 0,
-        'credit-reporting': 0,
-        'marketing': 0,
-        'background-check': 0,
-        'social-media': 0,
-        'advertising': 0,
-        'risk-management': 0,
-        'insurance': 0,
-        'financial': 0,
-        'personal-data': 0,
-        'other': 0
+      // Add category-based weighting
+      const categoryWeights: Record<string, number> = {
+        'people-search': 20,
+        'marketing': 15,
+        'credit-reporting': 10,
+        'background-check': 18,
+        'social-media': 12,
+        'advertising': 14,
+        'risk-management': 8,
+        'financial': 7,
+        'personal-data': 25,
+        'other': 5
       };
       
-      // Determine strongest categories based on email domain
-      if (['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'aol.com', 'icloud.com'].includes(domain)) {
-        // Personal email - prioritize people search, marketing and social media
-        categoryWeights['people-search'] = 10;
-        categoryWeights['marketing'] = 8;
-        categoryWeights['social-media'] = 7;
-        categoryWeights['advertising'] = 6;
+      // Add weight based on broker category
+      score += categoryWeights[broker.category] || 5;
+      
+      // Add domain-specific weighting
+      if (domain.includes('gmail') || domain.includes('yahoo') || domain.includes('hotmail')) {
+        // Personal emails are more likely to be in people-search and marketing databases
+        if (broker.category === 'people-search') score += 20;
+        if (broker.category === 'marketing') score += 15;
+        if (broker.category === 'advertising') score += 10;
       } else if (domain.includes('edu')) {
-        // Educational email - prioritize academic and professional profiles
-        categoryWeights['background-check'] = 10;
-        categoryWeights['people-search'] = 8;
-        categoryWeights['social-media'] = 6;
-      } else if (['gov', 'mil'].some(d => domain.includes(d))) {
-        // Government/military - careful selection with higher risk management
-        categoryWeights['risk-management'] = 10;
-        categoryWeights['background-check'] = 8;
-        categoryWeights['people-search'] = 5;
-      } else {
-        // Likely business email - prioritize professional data brokers
-        categoryWeights['financial'] = 9;
-        categoryWeights['marketing'] = 8;
-        categoryWeights['credit-reporting'] = 8;
-        categoryWeights['background-check'] = 7;
-        categoryWeights['risk-management'] = 7;
+        // Educational emails are less likely to be in marketing databases
+        if (broker.category === 'marketing') score -= 10;
+        if (broker.category === 'background-check') score += 5;
+      } else if (domain.includes('gov')) {
+        // Government emails are unlikely to be in most databases
+        score -= 15;
+        if (broker.category === 'people-search') score -= 10;
+      } else if (!domain.includes('com')) {
+        // Business emails more likely in recruitment and marketing
+        if (broker.category === 'marketing') score += 12;
+        if (broker.category === 'risk-management') score += 8;
+        if (broker.category === 'background-check') score += 10;
       }
       
-      // Add score based on broker category priority for this email
-      if (broker.category) {
-        score += categoryWeights[broker.category] || 0;
-      }
+      // Check for likely data presence
+      const hasUserData = score > 50;
       
-      // Add additional scores for premium brokers (for tiered offerings)
-      if (broker.isPremium) {
-        // Add a hash-based score to ensure consistent premium recommendation patterns
-        score += (emailHash % 10 < 4) ? 5 : -2;
-      }
+      // Cap score at 100
+      score = Math.min(score, 100);
       
-      // Deterministic scoring based on username
-      for (let i = 0; i < username.length; i += 2) {
-        const char = username.charCodeAt(i);
-        if (brokerNameLower.charCodeAt(0) % char === 0) {
-          score += 2; // Deterministic score based on username
-        }
-      }
-      
-      // Add a consistent deterministic score component
-      score += (emailHash + hashCode(broker.name)) % 10;
-      
-      return { broker, score };
+      // Return broker with a score attribute added
+      return { 
+        ...broker, 
+        matchScore: Math.round(score),
+        hasUserData
+      };
     });
     
-    // Sort by score (higher first) and normalize the results
-    const sortedBrokers = scoredBrokers
-      .sort((a, b) => b.score - a.score)
-      .map(item => item.broker);
+    // Sort by score (descending) and take the top results
+    const topBrokers = scoredBrokers
+      .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+      .slice(0, 15); // Limit to top 15 brokers
     
-    // Adjust broker count based on email characteristics for more variety
-    // This simulates the "matching strength" of different services
-    // More professional, older, or complex emails usually have more traces
-    let brokerCount = 8; // Base count
-    
-    if (username.length > 10) {
-      brokerCount += 2; // Longer usernames usually have more history
+    return topBrokers;
+  },
+
+  // Helper function to generate hash code from string
+  hashCode: (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
     }
-    
-    if (username.includes('.') || username.includes('_')) {
-      brokerCount += 1; // Formatted usernames tend to be professional
-    }
-    
-    // Add email age simulation using hash (consistent but varied)
-    const ageVariation = (emailHash % 7) - 3; // -3 to +3 variation
-    brokerCount += ageVariation;
-    
-    // Ensure reasonable limits
-    brokerCount = Math.max(5, Math.min(18, brokerCount));
-    
-    return sortedBrokers.slice(0, brokerCount);
+    return hash;
   },
 
   // Encryption status operations

@@ -36,6 +36,8 @@ export interface DataBroker {
   region?: string[];
   privacyLawReference?: string[];
   isPremium?: boolean;
+  hasUserData?: boolean; // Indicates if this broker likely has the user's data
+  matchScore?: number; // Score indicating how likely the broker has the user's data (0-100)
 }
 
 // Categories of data brokers

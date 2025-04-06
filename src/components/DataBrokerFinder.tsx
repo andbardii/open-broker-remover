@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ExternalLink, Shield, AlertCircle, Clock } from "lucide-react";
+import { Search, ExternalLink, Shield, AlertCircle, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -215,6 +215,27 @@ const DataBrokerFinder: React.FC = () => {
     }
   };
 
+  // Helper to render the match score with visual indicator
+  const renderMatchScore = (matchScore?: number) => {
+    if (matchScore === undefined) return null;
+    
+    let colorClass = "bg-green-500";
+    if (matchScore < 50) {
+      colorClass = "bg-gray-300";
+    } else if (matchScore < 70) {
+      colorClass = "bg-yellow-500";
+    } else if (matchScore < 85) {
+      colorClass = "bg-orange-500";
+    }
+    
+    return (
+      <div className="flex items-center gap-1">
+        <div className={`w-10 h-2 rounded-full ${colorClass}`}></div>
+        <span className="text-xs text-muted-foreground">{matchScore}%</span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -314,6 +335,7 @@ const DataBrokerFinder: React.FC = () => {
                       <tr className="border-b transition-colors hover:bg-muted/50">
                         <th className="h-12 px-4 text-left align-middle font-medium">{t('data-broker')}</th>
                         <th className="h-12 px-4 text-left align-middle font-medium">{t('category')}</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium">{t('has-data')}</th>
                         <th className="h-12 px-4 text-left align-middle font-medium">{t('difficulty')}</th>
                         <th className="h-12 px-4 text-left align-middle font-medium">{t('actions')}</th>
                       </tr>
@@ -336,6 +358,21 @@ const DataBrokerFinder: React.FC = () => {
                             <Badge variant="secondary" className="capitalize">
                               {broker.category.replace('-', ' ')}
                             </Badge>
+                          </td>
+                          <td className="p-4 align-middle">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center">
+                                {broker.hasUserData ? (
+                                  <CheckCircle2 className="h-4 w-4 text-red-500 mr-1" />
+                                ) : (
+                                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-1" />
+                                )}
+                                <span className="text-sm">
+                                  {broker.hasUserData ? t('likely-has-data') : t('might-have-data')}
+                                </span>
+                              </div>
+                              {renderMatchScore(broker.matchScore)}
+                            </div>
                           </td>
                           <td className="p-4 align-middle">
                             <div className="flex items-center">
