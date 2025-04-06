@@ -302,46 +302,70 @@ export const dbService = {
       return [];
     }
     
-    const domain = emailParts[1];
-    // Limit the number of parts to prevent excessive processing
-    const domainParts = domain.split('.').slice(0, 3);
+    const domain = emailParts[1].toLowerCase();
+    const username = emailParts[0].toLowerCase();
     
-    // Create a deterministic selection algorithm based on the email hash
-    // This ensures same email always returns same brokers
+    // Extract domain components for better matching
+    const domainParts = domain.split('.');
+    const topLevelDomain = domainParts[domainParts.length - 1]; // com, org, etc.
+    const secondLevelDomain = domainParts.length > 1 ? domainParts[domainParts.length - 2] : ''; // gmail, yahoo, etc.
     
-    // Deterministic hash function using a fixed algorithm
-    const generateHash = (input: string): number => {
+    // Define hashCode function for deterministic selection
+    const hashCode = (str: string): number => {
       let hash = 0;
-      const MAX_CHARS = Math.min(input.length, 100); // Limit to prevent excessive looping
-      
-      for (let i = 0; i < MAX_CHARS; i++) {
-        const char = input.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0; // Convert to 32bit integer
       }
-      
       return Math.abs(hash);
     };
     
-    // Compute hash once
-    const emailHash = generateHash(email);
-    
-    // Filter brokers deterministically
-    const filteredBrokers = allBrokers.filter((broker, index) => {
-      // Match broker if name contains part of domain
-      const domainMatch = domainParts.some(part => 
-        part.length > 2 && broker.name.toLowerCase().includes(part.toLowerCase())
-      );
+    // Score brokers based on relevance to the email
+    const scoredBrokers = allBrokers.map(broker => {
+      let score = 0;
+      const brokerNameLower = broker.name.toLowerCase();
       
-      // Use hash + index for deterministic but seemingly random selection
-      // Different from previous Math.random approach which was non-deterministic
-      const hashMatch = (emailHash + index) % 5 === 0;
+      // Direct match with domain parts scores higher
+      if (brokerNameLower.includes(secondLevelDomain) && secondLevelDomain.length > 3) {
+        score += 10;
+      }
       
-      return domainMatch || hashMatch;
+      // Match to common email providers
+      if (['gmail', 'yahoo', 'hotmail', 'outlook', 'aol', 'icloud'].includes(secondLevelDomain)) {
+        // For common email providers, we want a diverse set of major data brokers
+        if (['acxiom', 'experian', 'equifax', 'transunion', 'spokeo', 'intelius', 'beenverified'].some(
+          major => brokerNameLower.includes(major))) {
+          score += 5;
+        }
+      }
+      
+      // Financial and credit data brokers more relevant for professional/business domains
+      if (['equifax', 'experian', 'transunion', 'lexisnexis'].some(name => brokerNameLower.includes(name))) {
+        if (['business', 'corp', 'llc', 'inc', 'professional', 'edu'].some(
+          term => domain.includes(term) || username.includes(term))) {
+          score += 3;
+        }
+      }
+      
+      // Add some deterministic variation based on email hash
+      const emailHash = hashCode(email);
+      const brokerHash = hashCode(broker.name);
+      
+      // This creates a unique but deterministic score component for each email+broker combination
+      const deterministicScore = (emailHash + brokerHash) % 10;
+      score += deterministicScore;
+      
+      return { broker, score };
     });
     
-    // Deterministic selection - take first 5-10 results based on hash
-    const count = (emailHash % 6) + 5; // Returns 5-10 deterministically
-    return filteredBrokers.slice(0, Math.min(count, filteredBrokers.length));
+    // Sort by score (higher first) and return top matches
+    const sortedBrokers = scoredBrokers
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.broker);
+    
+    // Return top 8-12 brokers (varies slightly based on email hash for user experience)
+    const emailHashForCount = hashCode(email);
+    const numBrokersToReturn = 8 + (emailHashForCount % 5); // Returns 8-12 brokers
+    return sortedBrokers.slice(0, numBrokersToReturn);
   }
 }; 

@@ -2,9 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import type { IncomingMessage, ServerResponse } from 'http';
 
 export default defineConfig(({ mode }) => {
   const wsToken = process.env.VITE_WS_TOKEN || "development-ws-token";
+  const isProd = mode === 'production';
   
   return {
     server: {
@@ -21,12 +23,45 @@ export default defineConfig(({ mode }) => {
         port: 8080,
         clientPort: 8080,
         overlay: true,
+        path: `/_hmr?token=${wsToken}`,
       },
       cors: {
-        origin: 'localhost:8080',
+        origin: ['http://localhost:8080'],
         methods: ['GET', 'POST'],
-        credentials: true
-      }
+        allowedHeaders: ['Content-Type', 'X-Requested-With'],
+        credentials: true,
+        maxAge: 3600,
+        preflightContinue: false,
+        optionsSuccessStatus: 204
+      },
+      middlewares: [
+        (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+          const clientIp = req.socket.remoteAddress;
+          const isLocalhost = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1';
+          
+          if (req.url?.startsWith('/_hmr') && req.headers.upgrade === 'websocket') {
+            if (!req.url.includes(`token=${wsToken}`)) {
+              console.error('Invalid HMR connection attempt without token');
+              res.statusCode = 403;
+              res.end('Forbidden');
+              return;
+            }
+          }
+          
+          if (!isLocalhost && !isProd) {
+            console.error(`Blocked request from non-localhost IP: ${clientIp}`);
+            res.statusCode = 403;
+            res.end('Access denied - development server only accessible from localhost');
+            return;
+          }
+          
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('X-Frame-Options', 'DENY');
+          res.setHeader('X-XSS-Protection', '1; mode=block');
+          
+          next();
+        }
+      ]
     },
     plugins: [
       react(),
