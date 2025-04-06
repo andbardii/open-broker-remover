@@ -33,7 +33,7 @@ const LanguageSwitcher: React.FC = () => {
           <p>{t('switch-language')}</p>
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" className="bg-white">
+      <DropdownMenuContent align="end">
         {languages.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
