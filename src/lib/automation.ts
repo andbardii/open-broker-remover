@@ -288,7 +288,7 @@ class AutomationService {
       };
     }
   }
-
+  
   // Generate appropriate form fields based on broker type
   private generateFormFields(brokerName: string, userEmail: string, category: BrokerCategory): FormField[] {
     const fields: FormField[] = [
@@ -428,7 +428,7 @@ class AutomationService {
       const result = await this.processBrokerRequest(requestId, userEmail);
       if (result.success) {
         results.completed.push(requestId);
-      } else {
+    } else {
         results.failed.push(requestId);
         results.success = false;
       }
