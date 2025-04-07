@@ -7,13 +7,22 @@ import { logger } from './logger';
 
 const execAsync = promisify(exec);
 
+// Simple filename sanitization function
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[^a-zA-Z0-9-._]/g, '') // Only allow alphanumeric, hyphen, dot, and underscore
+    .replace(/^\.+/, '') // Remove leading dots
+    .replace(/\.+$/, '') // Remove trailing dots
+    .substring(0, 255); // Limit length
+}
+
 class BackupService {
   private backupDir: string;
   private dbPath: string;
 
   constructor() {
-    this.backupDir = config.storage.backupDir;
-    this.dbPath = path.join(config.storage.dataDir, 'open-broker-remover.db');
+    this.backupDir = path.resolve(config.storage.backupDir);
+    this.dbPath = path.resolve(path.join(config.storage.dataDir, 'open-broker-remover.db'));
     this.ensureBackupDir();
   }
 
@@ -25,7 +34,7 @@ class BackupService {
 
   private getBackupFileName(): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    return `backup-${timestamp}.db`;
+    return sanitizeFilename(`backup-${timestamp}.db`);
   }
 
   private async cleanOldBackups(): Promise<void> {
@@ -35,7 +44,15 @@ class BackupService {
       const retentionPeriod = config.database.backup.retentionDays * 24 * 60 * 60 * 1000;
 
       for (const file of files) {
-        const filePath = path.join(this.backupDir, file);
+        if (!file.endsWith('.db')) continue;
+        
+        const filePath = path.resolve(path.join(this.backupDir, file));
+        // Ensure the file is within the backup directory
+        if (!filePath.startsWith(this.backupDir)) {
+          logger.warn('Attempted directory traversal', { file });
+          continue;
+        }
+
         const stats = await fs.promises.stat(filePath);
         const age = now - stats.mtime.getTime();
 
@@ -51,23 +68,33 @@ class BackupService {
 
   public async createBackup(): Promise<void> {
     try {
-      // Check if database exists
       if (!fs.existsSync(this.dbPath)) {
         logger.warn('Database file not found, skipping backup');
         return;
       }
 
-      const backupFile = path.join(this.backupDir, this.getBackupFileName());
+      const backupFileName = this.getBackupFileName();
+      const backupPath = path.resolve(path.join(this.backupDir, backupFileName));
       
-      // Use sqlite3 .backup command for atomic backup
-      await execAsync(`sqlite3 "${this.dbPath}" ".backup '${backupFile}'"`);
+      // Ensure the backup path is within the backup directory
+      if (!backupPath.startsWith(this.backupDir)) {
+        throw new Error('Invalid backup path');
+      }
+
+      // Use sqlite3 with proper escaping
+      const command = [
+        'sqlite3',
+        this.dbPath,
+        `.backup '${backupPath.replace(/'/g, "'\"'\"'")}'`
+      ].join(' ');
+      
+      await execAsync(command);
       
       logger.info('Database backup created successfully', { 
         source: this.dbPath,
-        destination: backupFile 
+        destination: backupPath 
       });
 
-      // Clean old backups
       await this.cleanOldBackups();
     } catch (error) {
       logger.error('Error creating database backup', { error });
@@ -77,11 +104,17 @@ class BackupService {
 
   public async restoreBackup(backupFile: string): Promise<void> {
     try {
-      const sourcePath = path.join(this.backupDir, backupFile);
+      const sanitizedFile = sanitizeFilename(backupFile);
+      const sourcePath = path.resolve(path.join(this.backupDir, sanitizedFile));
       
-      // Verify backup file exists
-      if (!fs.existsSync(sourcePath)) {
-        throw new Error('Backup file not found');
+      // Ensure the source path is within the backup directory
+      if (!sourcePath.startsWith(this.backupDir)) {
+        throw new Error('Invalid backup file path');
+      }
+
+      // Verify backup file exists and is a .db file
+      if (!fs.existsSync(sourcePath) || !sourcePath.endsWith('.db')) {
+        throw new Error('Backup file not found or invalid');
       }
 
       // Create a temporary backup of current database
@@ -91,8 +124,14 @@ class BackupService {
       }
 
       try {
-        // Restore from backup
-        await execAsync(`sqlite3 "${this.dbPath}" ".restore '${sourcePath}'"`);
+        // Restore from backup with proper escaping
+        const command = [
+          'sqlite3',
+          this.dbPath,
+          `.restore '${sourcePath.replace(/'/g, "'\"'\"'")}'`
+        ].join(' ');
+        
+        await execAsync(command);
         
         // Remove temporary backup
         if (fs.existsSync(tempBackup)) {
@@ -125,7 +164,11 @@ class BackupService {
         files
           .filter(file => file.endsWith('.db'))
           .map(async file => {
-            const filePath = path.join(this.backupDir, file);
+            const filePath = path.resolve(path.join(this.backupDir, file));
+            // Ensure the file is within the backup directory
+            if (!filePath.startsWith(this.backupDir)) {
+              return null;
+            }
             const stats = await fs.promises.stat(filePath);
             return {
               file,
@@ -135,7 +178,9 @@ class BackupService {
           })
       );
 
-      return backups.sort((a, b) => b.date.getTime() - a.date.getTime());
+      return backups
+        .filter((backup): backup is NonNullable<typeof backup> => backup !== null)
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
     } catch (error) {
       logger.error('Error listing backups', { error });
       throw error;

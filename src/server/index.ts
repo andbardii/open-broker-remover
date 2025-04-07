@@ -71,32 +71,62 @@ express.static.mime.define({
 });
 
 // Direct asset handlers for assets folder
-app.get('/assets/*.js', (req, res, next) => {
-  const assetPath = path.join(__dirname, 'client', req.path);
-  res.type('application/javascript');
-  res.sendFile(assetPath, err => {
-    if (err) {
-      console.error(`Error serving JS asset: ${req.path}`, err);
-      console.error(`Tried path: ${assetPath}`);
-      next();
+app.get('/assets/*', (req, res, next) => {
+  try {
+    const requestedPath = req.path;
+    const normalizedPath = path.normalize(requestedPath).replace(/^(\.\.[\\/])+/, '');
+    const assetPath = path.join(__dirname, 'client', normalizedPath);
+    
+    // Ensure the requested file is within the assets directory
+    const clientDir = path.join(__dirname, 'client');
+    if (!assetPath.startsWith(clientDir)) {
+      console.error(`Attempted directory traversal: ${requestedPath}`);
+      return res.status(403).json({ error: 'Access denied' });
     }
-  });
+
+    // Only allow specific file types
+    const ext = path.extname(assetPath).toLowerCase();
+    const allowedExtensions = new Set(['.js', '.css', '.map']);
+    if (!allowedExtensions.has(ext)) {
+      console.error(`Invalid file type requested: ${ext}`);
+      return res.status(403).json({ error: 'Invalid file type' });
+    }
+
+    // Set correct content type
+    const contentTypes: { [key: string]: string } = {
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.map': 'application/json'
+    };
+    res.type(contentTypes[ext]);
+
+    res.sendFile(assetPath, err => {
+      if (err) {
+        console.error(`Error serving asset: ${requestedPath}`, err);
+        next();
+      }
+    });
+  } catch (error) {
+    console.error('Error handling asset request:', error);
+    next(error);
+  }
 });
 
-app.get('/assets/*.css', (req, res, next) => {
-  const assetPath = path.join(__dirname, 'client', req.path);
-  res.type('text/css');
-  res.sendFile(assetPath, err => {
-    if (err) {
-      console.error(`Error serving CSS asset: ${req.path}`, err);
-      console.error(`Tried path: ${assetPath}`);
-      next();
-    }
-  });
-});
+// Static file serving with security checks
+app.use((req, res, next) => {
+  const staticDir = path.join(__dirname, 'client');
+  const requestedPath = req.path;
+  const normalizedPath = path.normalize(requestedPath).replace(/^(\.\.[\\/])+/, '');
+  const fullPath = path.join(staticDir, normalizedPath);
 
-// Static file serving
-app.use(express.static(path.join(__dirname, 'client')));
+  // Ensure the requested file is within the static directory
+  if (!fullPath.startsWith(staticDir)) {
+    console.error(`Attempted directory traversal: ${requestedPath}`);
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  next();
+}, express.static(path.join(__dirname, 'client')));
 
 // API Routes
 app.get('/api/health', async (req, res) => {
