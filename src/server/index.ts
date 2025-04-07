@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import { encryptionService } from './encryption';
 import { backupRouter } from './routes/backup';
 import { config } from './config';
+import { logger } from './logger';
 
 // Create Express server
 const app = express();
@@ -74,59 +75,82 @@ express.static.mime.define({
 app.get('/assets/*', (req, res, next) => {
   try {
     const requestedPath = req.path;
-    const normalizedPath = path.normalize(requestedPath).replace(/^(\.\.[\\/])+/, '');
+    // Normalize and validate the path
+    const normalizedPath = path.normalize(requestedPath).replace(/^(\.\.[/\\])+/, '');
     const assetPath = path.join(__dirname, 'client', normalizedPath);
     
-    // Ensure the requested file is within the assets directory
-    const clientDir = path.join(__dirname, 'client');
-    if (!assetPath.startsWith(clientDir)) {
-      console.error(`Attempted directory traversal: ${requestedPath}`);
+    // Ensure the requested file is within the assets directory using realpath
+    const clientDir = path.resolve(path.join(__dirname, 'client'));
+    const realAssetPath = path.resolve(assetPath);
+    
+    if (!realAssetPath.startsWith(clientDir)) {
+      logger.error(`Attempted directory traversal: ${requestedPath}`);
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Only allow specific file types
+    // Strict file type validation with content type mapping
     const ext = path.extname(assetPath).toLowerCase();
-    const allowedExtensions = new Set(['.js', '.css', '.map']);
-    if (!allowedExtensions.has(ext)) {
-      console.error(`Invalid file type requested: ${ext}`);
-      return res.status(403).json({ error: 'Invalid file type' });
-    }
-
-    // Set correct content type
-    const contentTypes: { [key: string]: string } = {
+    const contentTypes: Record<string, string> = {
       '.js': 'application/javascript',
       '.css': 'text/css',
       '.map': 'application/json'
     };
+
+    if (!contentTypes[ext]) {
+      logger.error(`Invalid file type requested: ${ext}`);
+      return res.status(403).json({ error: 'Invalid file type' });
+    }
+
+    // Set content type from our strict mapping
     res.type(contentTypes[ext]);
 
-    res.sendFile(assetPath, err => {
+    // Use sendFile with proper options
+    res.sendFile(realAssetPath, {
+      dotfiles: 'deny',
+      headers: {
+        'X-Content-Type-Options': 'nosniff'
+      }
+    }, err => {
       if (err) {
-        console.error(`Error serving asset: ${requestedPath}`, err);
-        next();
+        logger.error(`Error serving asset: ${requestedPath}`, err);
+        next(err);
       }
     });
   } catch (error) {
-    console.error('Error handling asset request:', error);
+    logger.error('Error handling asset request:', error);
     next(error);
   }
 });
 
 // Static file serving with security checks
 app.use((req, res, next) => {
-  const staticDir = path.join(__dirname, 'client');
-  const requestedPath = req.path;
-  const normalizedPath = path.normalize(requestedPath).replace(/^(\.\.[\\/])+/, '');
-  const fullPath = path.join(staticDir, normalizedPath);
+  try {
+    const staticDir = path.resolve(path.join(__dirname, 'client'));
+    const requestedPath = req.path;
+    const normalizedPath = path.normalize(requestedPath).replace(/^(\.\.[/\\])+/, '');
+    const fullPath = path.resolve(path.join(staticDir, normalizedPath));
 
-  // Ensure the requested file is within the static directory
-  if (!fullPath.startsWith(staticDir)) {
-    console.error(`Attempted directory traversal: ${requestedPath}`);
-    return res.status(403).json({ error: 'Access denied' });
+    // Ensure the requested file is within the static directory using realpath
+    if (!fullPath.startsWith(staticDir)) {
+      logger.error(`Attempted directory traversal: ${requestedPath}`);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Error in static file middleware:', error);
+    next(error);
   }
-
-  next();
-}, express.static(path.join(__dirname, 'client')));
+}, express.static(path.join(__dirname, 'client'), {
+  dotfiles: 'deny',
+  etag: true,
+  index: false,
+  maxAge: '1h',
+  lastModified: true,
+  setHeaders: (res) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+  }
+}));
 
 // API Routes
 app.get('/api/health', async (req, res) => {
