@@ -6,6 +6,8 @@ import { dbService } from './database';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { encryptionService } from './encryption';
+import { backupRouter } from './routes/backup';
+import { config } from './config';
 
 // Create Express server
 const app = express();
@@ -59,8 +61,44 @@ app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, '../client')));
 
 // API Routes
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbStatus = await dbService.getDataBrokers().length > 0 ? 'ok' : 'warning';
+    const encryptionStatus = await dbService.getEncryptionStatus();
+    
+    const health = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '1.0.0',
+      services: {
+        database: {
+          status: dbStatus,
+          message: dbStatus === 'ok' ? 'Connected' : 'Connected but no data'
+        },
+        encryption: {
+          status: encryptionStatus.enabled ? 'ok' : 'disabled',
+          initialized: encryptionStatus.initialized
+        },
+        backup: {
+          status: config.database.backup.enabled ? 'ok' : 'disabled',
+          interval: `${config.database.backup.intervalSeconds}s`,
+          retention: `${config.database.backup.retentionDays} days`,
+          directory: config.storage.backupDir
+        }
+      },
+      uptime: process.uptime(),
+      memory: process.memoryUsage()
+    };
+
+    res.json(health);
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: 'Health check failed'
+    });
+  }
 });
 
 // Data Brokers API
@@ -239,6 +277,9 @@ app.post('/api/encryption/import-key', strictLimiter, async (req, res) => {
     res.status(500).json({ error: 'Failed to import encryption key' });
   }
 });
+
+// Apply strict rate limiting to sensitive operations
+app.use('/api/backups', strictLimiter, backupRouter);
 
 // Catch all other routes and return the React app
 app.get('*', (req, res) => {

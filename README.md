@@ -14,6 +14,7 @@ Il progetto è ancora in fase di sviluppo ed è nato dal desiderio di costruire 
 - [Funzionalità Principali](#funzionalita-principali)
 - [Tecnologie Utilizzate](#tecnologie-utilizzate)
 - [Sistema di Crittografia](#sistema-di-crittografia)
+- [Sistema di Backup](#sistema-di-backup)
 - [Esecuzione con Docker](#esecuzione-con-docker)
 - [Sviluppo Locale](#sviluppo-locale)
 - [Licenza](#licenza)
@@ -70,6 +71,42 @@ L'applicazione fornisce endpoint API per la gestione della crittografia:
 - `/api/encryption/export-key`: Esporta la chiave per il backup (protetta da rate limiting)
 - `/api/encryption/import-key`: Importa una chiave precedentemente esportata
 
+## Sistema di Backup
+L'applicazione include un sistema di backup automatico per proteggere i dati del database:
+
+### Caratteristiche del Backup
+- **Backup Automatici**: Backup periodici configurabili del database SQLite
+- **Gestione della Retention**: Pulizia automatica dei backup più vecchi
+- **Backup Manuali**: Possibilità di creare backup on-demand tramite API
+- **Ripristino Sicuro**: Sistema di ripristino con backup temporaneo di sicurezza
+- **Monitoraggio**: Logging dettagliato di tutte le operazioni di backup
+
+### Configurazione dei Backup
+Il sistema di backup può essere configurato tramite variabili d'ambiente:
+- `DB_BACKUP_ENABLED`: Abilita/disabilita i backup automatici (default: true)
+- `DB_BACKUP_INTERVAL`: Intervallo tra i backup in secondi (default: 86400, 24 ore)
+- `DB_BACKUP_RETENTION`: Giorni di conservazione dei backup (default: 7)
+- `BACKUP_DIR`: Directory dove salvare i backup (default: ./backups)
+
+### API di Backup
+L'applicazione fornisce endpoint API per la gestione dei backup:
+- `GET /api/backups`: Lista tutti i backup disponibili
+- `POST /api/backups`: Crea un nuovo backup manualmente
+- `POST /api/backups/restore/:filename`: Ripristina un backup specifico
+
+### Gestione dei Backup con Docker
+Quando si utilizza Docker, i backup vengono salvati nel volume `open-broker-data`:
+```sh
+# Visualizza i backup disponibili
+curl http://localhost:3000/api/backups
+
+# Crea un backup manuale
+curl -X POST http://localhost:3000/api/backups
+
+# Ripristina un backup specifico
+curl -X POST http://localhost:3000/api/backups/restore/backup-2024-03-21T10-00-00.db
+```
+
 ## Esecuzione con Docker
 L'applicazione può essere facilmente eseguita utilizzando Docker, che incapsula sia il frontend che il backend in un unico container:
 
@@ -92,10 +129,35 @@ L'applicazione può essere facilmente eseguita utilizzando Docker, che incapsula
 4. **Gestione dei dati**:
    I dati sono persistenti grazie al volume Docker `open-broker-data` che viene creato automaticamente. Questo garantisce che i dati non vengano persi tra i riavvii del container.
 
-5. **Sicurezza del Container**:
+5. **Sicurezza e Monitoraggio del Container**:
    - L'applicazione viene eseguita come utente non-root per una maggiore sicurezza
    - Il container è limitato a connettersi solo a localhost (127.0.0.1)
    - Le intestazioni di sicurezza HTTP sono configurate per prevenire attacchi comuni
+   - Health check automatico ogni 30 secondi per monitorare lo stato dell'applicazione
+   - Limiti di risorse configurati per garantire prestazioni stabili:
+     - CPU: limite massimo 50%, minimo garantito 25%
+     - Memoria: limite massimo 512MB, minimo garantito 256MB
+
+6. **Ottimizzazioni Docker**:
+   - Build multi-stage per ridurre la dimensione dell'immagine finale
+   - Caching ottimizzato dei layer per build più veloci
+   - Separazione chiara tra dipendenze di produzione e sviluppo
+   - Gestione efficiente delle dipendenze con `npm ci`
+
+7. **Monitoraggio dello Stato**:
+   ```sh
+   # Verifica lo stato del container e il health check
+   docker ps
+   
+   # Visualizza informazioni dettagliate sullo stato dell'applicazione
+   curl http://localhost:3000/api/health
+   ```
+   L'endpoint `/api/health` fornisce informazioni dettagliate su:
+   - Stato generale dell'applicazione
+   - Versione corrente
+   - Stato del database
+   - Stato della crittografia
+   - Metriche di sistema (uptime, utilizzo memoria)
 
 ## Sviluppo Locale
 
