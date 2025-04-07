@@ -38,7 +38,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface EmailSetupProps {
   onSetupComplete: (config: EmailConfig) => void;
-  initialConfig?: EmailConfig | null;
+  initialConfig?: Partial<EmailConfig>;
 }
 
 const EmailSetup: React.FC<EmailSetupProps> = ({ onSetupComplete, initialConfig }) => {

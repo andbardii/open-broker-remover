@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import { DataBroker, DataRequest, BrokerCategory } from '../lib/types';
 import { encryptionService } from './encryption';
+import { logger } from './logger';
+import { config } from './config';
 
 // Import KEY_FILE_PATH
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');

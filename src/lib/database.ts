@@ -1,10 +1,10 @@
-import { DataBroker, Request, EmailConfig } from './types';
+import { DataBroker, DataRequest, EmailConfig } from './types';
 import { encryptionService } from '../server/encryption';
 import { logger } from '../server/logger';
 import path from 'path';
 import fs from 'fs';
 import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
+import { Database, open } from 'sqlite';
 import { config } from '../server/config';
 
 class DatabaseService {
@@ -43,7 +43,7 @@ class DatabaseService {
 
       this.db = await open({
         filename: dbPath,
-        driver: sqlite3.Database
+        driver: Database
       });
 
       // Enable WAL mode for better concurrency
@@ -69,22 +69,31 @@ class DatabaseService {
       CREATE TABLE IF NOT EXISTS data_brokers (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        url TEXT NOT NULL,
-        optOutUrl TEXT,
-        createdAt INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL
+        optOutUrl TEXT NOT NULL,
+        category TEXT NOT NULL,
+        optOutMethod TEXT NOT NULL,
+        dataTypes TEXT NOT NULL,
+        difficulty TEXT NOT NULL,
+        responseTime TEXT,
+        region TEXT,
+        privacyLawReference TEXT,
+        isPremium INTEGER DEFAULT 0,
+        hasUserData INTEGER DEFAULT 0,
+        matchScore INTEGER
       );
 
       CREATE TABLE IF NOT EXISTS requests (
         id TEXT PRIMARY KEY,
-        brokerId TEXT NOT NULL,
+        brokerName TEXT NOT NULL,
         status TEXT NOT NULL,
-        createdAt INTEGER NOT NULL,
-        updatedAt INTEGER NOT NULL,
-        FOREIGN KEY (brokerId) REFERENCES data_brokers(id)
+        userEmail TEXT NOT NULL,
+        responseContent TEXT,
+        metadata TEXT,
+        dateCreated TEXT NOT NULL,
+        dateUpdated TEXT NOT NULL
       );
 
-      CREATE INDEX IF NOT EXISTS idx_requests_broker ON requests(brokerId);
+      CREATE INDEX IF NOT EXISTS idx_requests_broker ON requests(brokerName);
       CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
     `);
   }
@@ -115,19 +124,40 @@ class DatabaseService {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const now = Date.now();
+      const now = new Date().toISOString();
       const newBroker: DataBroker = {
         id: crypto.randomUUID(),
         name: broker.name || '',
-        url: broker.url || '',
         optOutUrl: broker.optOutUrl || '',
-        createdAt: now,
-        updatedAt: now
+        category: broker.category || 'other',
+        optOutMethod: broker.optOutMethod || 'form',
+        dataTypes: broker.dataTypes || [],
+        difficulty: broker.difficulty || 'medium',
+        responseTime: broker.responseTime,
+        region: broker.region,
+        privacyLawReference: broker.privacyLawReference,
+        isPremium: broker.isPremium || false,
+        hasUserData: broker.hasUserData || false,
+        matchScore: broker.matchScore
       };
 
       await this.db.run(
-        'INSERT INTO data_brokers (id, name, url, optOutUrl, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
-        [newBroker.id, newBroker.name, newBroker.url, newBroker.optOutUrl, newBroker.createdAt, newBroker.updatedAt]
+        'INSERT INTO data_brokers (id, name, optOutUrl, category, optOutMethod, dataTypes, difficulty, responseTime, region, privacyLawReference, isPremium, hasUserData, matchScore) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          newBroker.id,
+          newBroker.name,
+          newBroker.optOutUrl,
+          newBroker.category,
+          newBroker.optOutMethod,
+          JSON.stringify(newBroker.dataTypes),
+          newBroker.difficulty,
+          newBroker.responseTime,
+          newBroker.region ? JSON.stringify(newBroker.region) : null,
+          newBroker.privacyLawReference ? JSON.stringify(newBroker.privacyLawReference) : null,
+          Number(newBroker.isPremium),
+          Number(newBroker.hasUserData),
+          newBroker.matchScore
+        ]
       );
 
       return newBroker;
@@ -160,8 +190,22 @@ class DatabaseService {
 
     try {
       const result = await this.db.run(
-        'UPDATE data_brokers SET name = ?, url = ?, optOutUrl = ?, updatedAt = ? WHERE id = ?',
-        [updates.name, updates.url, updates.optOutUrl, Date.now(), id]
+        'UPDATE data_brokers SET name = ?, optOutUrl = ?, category = ?, optOutMethod = ?, dataTypes = ?, difficulty = ?, responseTime = ?, region = ?, privacyLawReference = ?, isPremium = ?, hasUserData = ?, matchScore = ? WHERE id = ?',
+        [
+          updates.name,
+          updates.optOutUrl,
+          updates.category,
+          updates.optOutMethod,
+          updates.dataTypes ? JSON.stringify(updates.dataTypes) : null,
+          updates.difficulty,
+          updates.responseTime,
+          updates.region ? JSON.stringify(updates.region) : null,
+          updates.privacyLawReference ? JSON.stringify(updates.privacyLawReference) : null,
+          updates.isPremium !== undefined ? Number(updates.isPremium) : null,
+          updates.hasUserData !== undefined ? Number(updates.hasUserData) : null,
+          updates.matchScore,
+          id
+        ]
       );
 
       return result.changes > 0;
@@ -183,7 +227,7 @@ class DatabaseService {
     }
   }
 
-  public async getRequests(page = 0, pageSize = 50): Promise<Request[]> {
+  public async getRequests(page = 0, pageSize = 50): Promise<DataRequest[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
@@ -193,8 +237,8 @@ class DatabaseService {
 
       const offset = validatedPage * validatedPageSize;
 
-      const requests = await this.db.all<Request[]>(
-        'SELECT * FROM requests ORDER BY createdAt DESC LIMIT ? OFFSET ?',
+      const requests = await this.db.all<DataRequest[]>(
+        'SELECT * FROM requests ORDER BY dateCreated DESC LIMIT ? OFFSET ?',
         [validatedPageSize, offset]
       );
 
@@ -205,22 +249,25 @@ class DatabaseService {
     }
   }
 
-  public async createRequest(request: Partial<Request>): Promise<Request> {
+  public async createRequest(request: Partial<DataRequest>): Promise<DataRequest> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      const now = Date.now();
-      const newRequest: Request = {
+      const now = new Date().toISOString();
+      const newRequest: DataRequest = {
         id: crypto.randomUUID(),
-        brokerId: request.brokerId || '',
+        brokerName: request.brokerName || '',
         status: request.status || 'pending',
-        createdAt: now,
-        updatedAt: now
+        userEmail: request.userEmail || '',
+        dateCreated: now,
+        dateUpdated: now,
+        responseContent: request.responseContent,
+        metadata: request.metadata
       };
 
       await this.db.run(
-        'INSERT INTO requests (id, brokerId, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)',
-        [newRequest.id, newRequest.brokerId, newRequest.status, newRequest.createdAt, newRequest.updatedAt]
+        'INSERT INTO requests (id, brokerName, status, userEmail, responseContent, metadata, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [newRequest.id, newRequest.brokerName, newRequest.status, newRequest.userEmail, newRequest.responseContent, newRequest.metadata, newRequest.dateCreated, newRequest.dateUpdated]
       );
 
       return newRequest;
@@ -230,11 +277,11 @@ class DatabaseService {
     }
   }
 
-  public async createRequests(requests: Partial<Request>[]): Promise<Request[]> {
+  public async createRequests(requests: Partial<DataRequest>[]): Promise<DataRequest[]> {
     // Validate input array
     const validatedRequests = this.validateArrayInput(requests);
     
-    const results: Request[] = [];
+    const results: DataRequest[] = [];
     
     // Process in chunks to prevent memory issues
     const chunkSize = 100;
@@ -248,7 +295,7 @@ class DatabaseService {
     return results;
   }
 
-  public async updateRequest(id: string, updates: Partial<Request>): Promise<boolean> {
+  public async updateRequest(id: string, updates: Partial<DataRequest>): Promise<boolean> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Shield, Code, FileCode, Save, AlertCircle } from "lucide-react";
@@ -40,15 +40,7 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch configurations on component mount or tab switch
-  useEffect(() => {
-    if (activeTab === 'developer') {
-      fetchDockerConfig();
-      fetchAppConfig();
-    }
-  }, [activeTab]);
-
-  const fetchDockerConfig = async () => {
+  const fetchDockerConfig = useCallback(async () => {
     try {
       const config = await developerService.getDockerConfig();
       setDockerConfig(config);
@@ -60,9 +52,9 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
         variant: 'destructive'
       });
     }
-  };
+  }, [toast]);
 
-  const fetchAppConfig = async () => {
+  const fetchAppConfig = useCallback(async () => {
     try {
       const config = await developerService.getAppConfig();
       setAppConfig(JSON.stringify(config, null, 2));
@@ -75,7 +67,15 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
         variant: 'destructive'
       });
     }
-  };
+  }, [toast]);
+
+  // Fetch configurations on component mount or tab switch
+  useEffect(() => {
+    if (activeTab === 'developer') {
+      fetchDockerConfig();
+      fetchAppConfig();
+    }
+  }, [activeTab, fetchDockerConfig, fetchAppConfig]);
 
   const handleEmailSetup = async (config: EmailConfig) => {
     // The existing email setup handler logic remains in the component

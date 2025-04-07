@@ -3,31 +3,44 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { config } from './config';
 import { logger } from './logger';
+import crypto from 'crypto';
 
-// Improved filename sanitization with strict validation
+// Improved filename sanitization with strict validation and hash generation
 function sanitizeFilename(filename: string): string {
   if (!filename || typeof filename !== 'string') {
     throw new Error('Invalid filename');
   }
   
-  // Only allow alphanumeric, hyphen, underscore, and dot
-  const sanitized = filename
-    .replace(/[^a-zA-Z0-9\-._]/g, '')
-    .replace(/^\.+/, '')
-    .replace(/\.+$/, '')
-    .substring(0, 255);
-    
-  if (!sanitized) {
+  // Generate a hash of the original filename to ensure uniqueness and safety
+  const hash = crypto.createHash('sha256').update(filename).digest('hex').substring(0, 8);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  
+  // Create a safe filename with timestamp and hash
+  const safeFilename = `backup-${timestamp}-${hash}.db`;
+  
+  // Validate the generated filename
+  if (!/^[a-zA-Z0-9\-._]+$/.test(safeFilename)) {
     throw new Error('Invalid filename after sanitization');
   }
   
-  return sanitized;
+  return safeFilename;
+}
+
+// Validate path is within allowed directory
+function validatePath(targetPath: string, allowedDir: string): boolean {
+  const normalizedTarget = path.normalize(targetPath);
+  const normalizedAllowed = path.normalize(allowedDir);
+  const resolvedTarget = path.resolve(normalizedTarget);
+  const resolvedAllowed = path.resolve(normalizedAllowed);
+  
+  return resolvedTarget.startsWith(resolvedAllowed);
 }
 
 class BackupService {
   private backupDir: string;
   private dbPath: string;
   private readonly MAX_BACKUP_SIZE = 1024 * 1024 * 100; // 100MB limit
+  private readonly MAX_BACKUPS = 10; // Maximum number of backup files
 
   constructor() {
     this.backupDir = path.resolve(config.storage.backupDir);
@@ -41,13 +54,14 @@ class BackupService {
     }
   }
 
-  private getBackupFileName(): string {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    return sanitizeFilename(`backup-${timestamp}.db`);
-  }
-
   private async executeSqliteCommand(args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Validate all arguments
+      if (!Array.isArray(args) || args.some(arg => typeof arg !== 'string')) {
+        reject(new Error('Invalid command arguments'));
+        return;
+      }
+
       const sqlite = spawn('sqlite3', args, {
         stdio: ['ignore', 'pipe', 'pipe']
       });
@@ -69,37 +83,53 @@ class BackupService {
       sqlite.on('error', (err) => {
         reject(err);
       });
+
+      // Set timeout for the command
+      const timeout = setTimeout(() => {
+        sqlite.kill();
+        reject(new Error('Command execution timeout'));
+      }, 30000); // 30 seconds timeout
+
+      sqlite.on('exit', () => {
+        clearTimeout(timeout);
+      });
     });
   }
 
   private async cleanOldBackups(): Promise<void> {
     try {
       const files = await fs.promises.readdir(this.backupDir);
-      const now = Date.now();
-      const retentionPeriod = config.database.backup.retentionDays * 24 * 60 * 60 * 1000;
+      const backupFiles = files
+        .filter(file => file.endsWith('.db'))
+        .map(file => ({
+          name: file,
+          path: path.join(this.backupDir, file),
+          stats: fs.statSync(path.join(this.backupDir, file))
+        }))
+        .filter(file => {
+          // Ensure the file is within the backup directory
+          if (!validatePath(file.path, this.backupDir)) {
+            logger.warn('Attempted directory traversal', { file: file.name });
+            return false;
+          }
+          // Skip files that are too large
+          if (file.stats.size > this.MAX_BACKUP_SIZE) {
+            logger.warn('Backup file exceeds size limit', { file: file.name, size: file.stats.size });
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.stats.mtime.getTime() - a.stats.mtime.getTime());
 
-      for (const file of files) {
-        if (!file.endsWith('.db')) continue;
-        
-        const filePath = path.join(this.backupDir, file);
-        // Ensure the file is within the backup directory
-        if (path.dirname(filePath) !== this.backupDir) {
-          logger.warn('Attempted directory traversal', { file });
-          continue;
-        }
-
-        const stats = await fs.promises.stat(filePath);
-        
-        // Skip files that are too large
-        if (stats.size > this.MAX_BACKUP_SIZE) {
-          logger.warn('Backup file exceeds size limit', { file, size: stats.size });
-          continue;
-        }
-
-        const age = now - stats.mtime.getTime();
-        if (age > retentionPeriod) {
-          await fs.promises.unlink(filePath);
-          logger.info('Deleted old backup file', { file });
+      // Keep only the most recent backups
+      const filesToDelete = backupFiles.slice(this.MAX_BACKUPS);
+      
+      for (const file of filesToDelete) {
+        try {
+          await fs.promises.unlink(file.path);
+          logger.info('Deleted old backup file', { file: file.name });
+        } catch (error) {
+          logger.error('Error deleting backup file', { file: file.name, error });
         }
       }
     } catch (error) {
@@ -114,11 +144,11 @@ class BackupService {
         return;
       }
 
-      const backupFileName = this.getBackupFileName();
+      const backupFileName = sanitizeFilename(`backup-${Date.now()}`);
       const backupPath = path.join(this.backupDir, backupFileName);
       
-      // Ensure the backup path is within the backup directory
-      if (path.dirname(backupPath) !== this.backupDir) {
+      // Validate the backup path
+      if (!validatePath(backupPath, this.backupDir)) {
         throw new Error('Invalid backup path');
       }
 
@@ -145,8 +175,8 @@ class BackupService {
       const sanitizedFile = sanitizeFilename(backupFile);
       const sourcePath = path.join(this.backupDir, sanitizedFile);
       
-      // Ensure the source path is within the backup directory
-      if (path.dirname(sourcePath) !== this.backupDir) {
+      // Validate the source path
+      if (!validatePath(sourcePath, this.backupDir)) {
         throw new Error('Invalid backup file path');
       }
 
@@ -206,24 +236,31 @@ class BackupService {
           .filter(file => file.endsWith('.db'))
           .map(async file => {
             const filePath = path.join(this.backupDir, file);
-            // Ensure the file is within the backup directory
-            if (path.dirname(filePath) !== this.backupDir) {
-              return null;
-            }
-
-            const stats = await fs.promises.stat(filePath);
             
-            // Skip files that are too large
-            if (stats.size > this.MAX_BACKUP_SIZE) {
-              logger.warn('Backup file exceeds size limit', { file, size: stats.size });
+            // Validate the file path
+            if (!validatePath(filePath, this.backupDir)) {
+              logger.warn('Attempted directory traversal', { file });
               return null;
             }
 
-            return {
-              file,
-              size: stats.size,
-              date: stats.mtime
-            };
+            try {
+              const stats = await fs.promises.stat(filePath);
+              
+              // Skip files that are too large
+              if (stats.size > this.MAX_BACKUP_SIZE) {
+                logger.warn('Backup file exceeds size limit', { file, size: stats.size });
+                return null;
+              }
+
+              return {
+                file,
+                size: stats.size,
+                date: stats.mtime
+              };
+            } catch (error) {
+              logger.error('Error reading backup file stats', { file, error });
+              return null;
+            }
           })
       );
 

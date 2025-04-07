@@ -85,6 +85,36 @@ function validateAndSanitizeUrl(url: string): string | null {
   }
 }
 
+function sanitizeUrl(url: string): string {
+  try {
+    // Try to parse the URL to validate it
+    const parsedUrl = new URL(url);
+    
+    // Only allow http and https protocols
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new Error('Invalid protocol');
+    }
+
+    // Remove any username/password from the URL
+    parsedUrl.username = '';
+    parsedUrl.password = '';
+
+    // Remove fragments
+    parsedUrl.hash = '';
+
+    // Encode pathname and search parameters
+    parsedUrl.pathname = encodeURI(parsedUrl.pathname);
+    
+    // Properly encode search parameters
+    const searchParams = new URLSearchParams(parsedUrl.search);
+    parsedUrl.search = searchParams.toString();
+
+    return parsedUrl.toString();
+  } catch (error) {
+    throw new Error('Invalid URL');
+  }
+}
+
 // Main automation service for handling automated data removal requests
 class AutomationService {
   private config: AutomationConfig = {
