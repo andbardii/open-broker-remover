@@ -58,7 +58,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Function to set language with validation and storage
   const setLanguage = (newLanguage: Language) => {
-    if (Object.keys(translations).includes(newLanguage)) {
+    // Only allow European languages: en, it, fr, de, es, pt
+    if (['en', 'it', 'fr', 'de', 'es', 'pt'].includes(newLanguage)) {
       try {
         localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
         setLanguageState(newLanguage);
@@ -76,15 +77,15 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       // Get translation or fallback to key if not found
       let translation = translations[language]?.[key] || key;
-      
-      // Replace parameters if provided
-      if (params && params.length > 0) {
-        params.forEach((param, index) => {
-          translation = translation.replace(`{${index}}`, param);
-        });
-      }
-      
-      return translation;
+    
+    // Replace parameters if provided
+    if (params && params.length > 0) {
+      params.forEach((param, index) => {
+        translation = translation.replace(`{${index}}`, param);
+      });
+    }
+    
+    return translation;
     } catch (error) {
       console.error(`Translation error for key "${key}":`, error);
       return key; // Fallback to the key itself

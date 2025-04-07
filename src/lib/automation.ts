@@ -103,6 +103,84 @@ class AutomationService {
     return { ...this.config };
   }
 
+  // Detect form fields on a webpage
+  async detectFormFields(url: string): Promise<FormField[]> {
+    console.log(`Detecting form fields on ${url}`);
+    
+    // Validate URL before proceeding
+    const sanitizedUrl = validateAndSanitizeUrl(url);
+    if (!sanitizedUrl) {
+      throw new Error('Invalid or disallowed URL');
+    }
+    
+    // Simulate detection process
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Return simulated form fields based on URL
+    const fields: FormField[] = [
+      {
+        selector: 'email-field',
+        type: 'email',
+        label: 'Email Address',
+        value: '' // Empty value to be filled by the form
+      },
+      {
+        selector: 'full-name',
+        type: 'text',
+        label: 'Full Name',
+        value: ''
+      },
+      {
+        selector: 'confirmation-check',
+        type: 'checkbox',
+        label: 'I confirm this is my data',
+        value: 'true'
+      }
+    ];
+    
+    // Add more fields for specific domains
+    if (url.includes('mylife.com')) {
+      fields.push({
+        selector: 'remove-reason',
+        type: 'select',
+        label: 'Reason for removal',
+        value: '',
+        options: ['Privacy concerns', 'Security issues', 'Harassment', 'Other']
+      });
+    }
+    
+    return fields;
+  }
+
+  // Send automated request to a data broker
+  async sendRequest(url: string, formData: Record<string, string>): Promise<AutomationResult> {
+    console.log(`Sending automated request to ${url}`, formData);
+    
+    // Validate URL before proceeding
+    const sanitizedUrl = validateAndSanitizeUrl(url);
+    if (!sanitizedUrl) {
+      return {
+        success: false,
+        message: 'Invalid or disallowed URL',
+        timestamp: new Date().toISOString()
+      };
+    }
+    
+    // Simulate processing time
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    
+    // Generate a fake screenshot (base64 data)
+    const screenshot = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    
+    // Simulate a successful request
+    return {
+      success: true,
+      message: `Successfully sent request to ${url}`,
+      timestamp: new Date().toISOString(),
+      screenshot: screenshot
+    };
+  }
+
   // Fill form using automation (simulated for demo)
   async fillForm(url: string, fields: FormField[]): Promise<AutomationResult> {
     // This is a mock implementation - in a real app, this would use a headless browser

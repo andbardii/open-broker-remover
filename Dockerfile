@@ -43,7 +43,7 @@ WORKDIR /app
 
 # Copy built files and production dependencies
 COPY --from=builder /app/dist ./client
-COPY --from=builder /app/src/server/dist ./
+COPY --from=builder /app/src/server/dist/* ./
 COPY --from=deps /app/src/server/node_modules ./node_modules
 COPY package.json ./
 COPY src/server/package.json ./

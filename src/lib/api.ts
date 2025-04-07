@@ -1,7 +1,7 @@
 import { DataBroker, DataRequest } from './types';
 
 // API base URL - will use environment variable or default to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Helper to handle API responses
 const handleResponse = async (response: Response) => {

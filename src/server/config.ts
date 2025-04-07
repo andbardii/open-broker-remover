@@ -14,7 +14,7 @@ const envSchema = z.object({
   
   // Security
   ENCRYPTION_KEY_FILE: z.string().default('.encryption_key'),
-  MAX_REQUEST_SIZE: z.string().transform(Number).pipe(z.number().min(1024).max(10485760)).default('100kb'),
+  MAX_REQUEST_SIZE: z.string().default('100kb'), // Accept string value like "100kb" for express json limit
   RATE_LIMIT_WINDOW: z.string().transform(Number).pipe(z.number().min(1000)).default('900000'), // 15 minutes
   RATE_LIMIT_MAX: z.string().transform(Number).pipe(z.number().min(1)).default('100'),
   

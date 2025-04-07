@@ -45,7 +45,7 @@ export interface DiagnosticResult {
 
 // Default configuration
 const defaultConfig: AppConfig = {
-  apiUrl: 'http://localhost:3001/api',
+  apiUrl: 'http://localhost:3000/api',
   maxRequestsPerDay: 50,
   enableAutomation: true,
   loggingLevel: 'info',

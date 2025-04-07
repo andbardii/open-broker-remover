@@ -30,15 +30,15 @@ Il progetto è ancora in fase di sviluppo ed è nato dal desiderio di costruire 
 ## Tecnologie Utilizzate
 Il progetto è costruito utilizzando le seguenti tecnologie:
 - **Frontend**:
-  - Vite
-  - TypeScript
-  - React
-  - Shadcn-UI
-  - Tailwind CSS
+- Vite
+- TypeScript
+- React
+- Shadcn-UI
+- Tailwind CSS
 - **Backend**:
   - Node.js con Express
   - TypeScript
-  - Better-SQLite3 per la gestione locale del database
+- Better-SQLite3 per la gestione locale del database
   - Crittografia AES-256-GCM per la protezione dei dati sensibili
 - **Sicurezza**:
   - Helmet per le intestazioni HTTP di sicurezza

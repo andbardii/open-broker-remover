@@ -19,10 +19,10 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.gpteng.co", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https://lovable.dev"],
+      connectSrc: ["'self'", "https://cdn.gpteng.co", "http://localhost:3001"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -30,7 +30,11 @@ app.use(helmet({
       formAction: ["'self'"],
       upgradeInsecureRequests: []
     }
-  }
+  },
+  // Disable strict MIME checking to allow modules to load correctly
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
 }));
 
 // Apply rate limiting to all requests
@@ -53,12 +57,46 @@ const strictLimiter = rateLimit({
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json({ limit: '100kb' })); // Limit payload size
 app.use(morgan('dev'));
 
-// Serve static files from the React app in production
-app.use(express.static(path.join(__dirname, '../client')));
+// Configure MIME types
+express.static.mime.define({
+  'application/javascript': ['js'],
+  'text/css': ['css']
+});
+
+// Direct asset handlers for assets folder
+app.get('/assets/*.js', (req, res, next) => {
+  const assetPath = path.join(__dirname, 'client', req.path);
+  res.type('application/javascript');
+  res.sendFile(assetPath, err => {
+    if (err) {
+      console.error(`Error serving JS asset: ${req.path}`, err);
+      console.error(`Tried path: ${assetPath}`);
+      next();
+    }
+  });
+});
+
+app.get('/assets/*.css', (req, res, next) => {
+  const assetPath = path.join(__dirname, 'client', req.path);
+  res.type('text/css');
+  res.sendFile(assetPath, err => {
+    if (err) {
+      console.error(`Error serving CSS asset: ${req.path}`, err);
+      console.error(`Tried path: ${assetPath}`);
+      next();
+    }
+  });
+});
+
+// Static file serving
+app.use(express.static(path.join(__dirname, 'client')));
 
 // API Routes
 app.get('/api/health', async (req, res) => {
@@ -281,9 +319,18 @@ app.post('/api/encryption/import-key', strictLimiter, async (req, res) => {
 // Apply strict rate limiting to sensitive operations
 app.use('/api/backups', strictLimiter, backupRouter);
 
-// Catch all other routes and return the React app
+// Add this immediately before the last route
+app.use('/backup', backupRouter);
+
+// Catch-all route to serve the React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/index.html'));
+  // Don't serve the index for API routes or asset requests that fail
+  if (req.url.startsWith('/api/') || req.url.startsWith('/assets/')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  // For all other routes, serve the index.html for client-side routing
+  res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
 
 // Start server
