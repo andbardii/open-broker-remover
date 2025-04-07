@@ -65,7 +65,7 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
 
   const handleEmailSetup = async (config: EmailConfig) => {
     // The existing email setup handler logic remains in the component
-    await emailService.configure(config);
+    await emailService.saveConfig(config);
   };
 
   const handleSecuritySetup = () => {

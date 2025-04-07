@@ -7,12 +7,11 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import React, { useState, useEffect } from 'react';
-import { ThemeProvider } from '@/components/theme-provider';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/pages/Dashboard';
-import RequestsPage from '@/pages/RequestsPage';
+import Privacy from '@/pages/Privacy';
+import Requests from '@/pages/Requests';
 import DataBrokerFinder from '@/components/DataBrokerFinder';
-import NewRequestForm from '@/components/NewRequestForm';
 import BrokerListPage from '@/pages/BrokerListPage';
 import Settings from '@/pages/Settings';
 import { DataRequest } from '@/lib/types';
@@ -31,12 +30,10 @@ const App = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard requests={requests} onTabChange={setActiveTab} />;
-      case 'find-brokers':
-        return <DataBrokerFinder />;
-      case 'new-request':
-        return <NewRequestForm onRequestCreated={handleRequestCreated} />;
-      case 'track-requests':
-        return <RequestsPage requests={requests} onUpdateRequest={handleUpdateRequest} />;
+      case 'privacy':
+        return <Privacy onTabChange={setActiveTab} />;
+      case 'requests':
+        return <Requests onTabChange={setActiveTab} />;
       case 'data-brokers':
         return <BrokerListPage />;
       case 'settings':

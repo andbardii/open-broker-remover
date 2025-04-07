@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/components/Dashboard';
-import RequestList from '@/components/RequestList';
-import NewRequestForm from '@/components/NewRequestForm';
+import Privacy from '@/pages/Privacy';
+import Requests from '@/pages/Requests';
 import EmailSetup from '@/components/EmailSetup';
 import SecuritySetup from '@/components/SecuritySetup';
 import DataBrokerManager from '@/components/DataBrokerManager';
-import DataBrokerFinder from '@/components/DataBrokerFinder';
 import WelcomeTutorial from '@/components/WelcomeTutorial';
 import Settings from '@/pages/Settings';
+import About from '@/pages/About';
 import { db } from '@/lib/database';
 import { emailService } from '@/lib/email';
 import { DataRequest, EmailConfig } from '@/lib/types';
@@ -184,14 +184,11 @@ const Index = () => {
   };
   
   const handleEmailSetup = async (config: EmailConfig) => {
-    setIsContentLoading(true);
     try {
-      await emailService.configure(config);
-      handleTabChange("dashboard");
-      
+      await emailService.saveConfig(config);
       toast({
-        title: "Email configured",
-        description: "Your email settings have been saved",
+        title: "Success",
+        description: "Email configuration saved successfully",
       });
     } catch (error) {
       console.error('Error setting up email:', error);
@@ -200,8 +197,6 @@ const Index = () => {
         description: "Failed to save email configuration",
         variant: "destructive",
       });
-    } finally {
-      setIsContentLoading(false);
     }
   };
   
@@ -251,67 +246,11 @@ const Index = () => {
           </>
         );
         
-      case "new-request":
-        return (
-          <>
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">{t('new-request')}</h2>
-              <p className="text-muted-foreground">
-                Create a new data removal request for a data broker
-              </p>
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Create Request</CardTitle>
-                <CardDescription>
-                  Fill out the form below to generate a new data removal request
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <NewRequestForm onRequestCreated={handleCreateRequest} />
-              </CardContent>
-            </Card>
-          </>
-        );
-      
-      case "find-brokers":
-        return (
-          <>
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">{t('find-brokers')}</h2>
-              <p className="text-muted-foreground">
-                Find data brokers that may have your personal information
-              </p>
-            </div>
-            <DataBrokerFinder />
-          </>
-        );
+      case "privacy":
+        return <Privacy onTabChange={handleTabChange} />;
         
       case "requests":
-        return (
-          <>
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold tracking-tight">{t('request-tracking')}</h2>
-              <p className="text-muted-foreground">
-                Track and manage your data removal requests
-              </p>
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>All Requests</CardTitle>
-                <CardDescription>
-                  View and manage the status of all your data removal requests
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RequestList 
-                  requests={requests} 
-                  onUpdateRequest={handleUpdateRequest} 
-                />
-              </CardContent>
-            </Card>
-          </>
-        );
+        return <Requests onTabChange={handleTabChange} />;
         
       case "data-brokers":
         return (
@@ -339,11 +278,8 @@ const Index = () => {
       case "settings":
         return <Settings onTabChange={handleTabChange} />;
         
-      case "email-settings":
-      case "security":
-        // Redirect to the combined settings page
-        handleTabChange("settings");
-        return null;
+      case "about":
+        return <About onTabChange={handleTabChange} />;
         
       default:
         return null;

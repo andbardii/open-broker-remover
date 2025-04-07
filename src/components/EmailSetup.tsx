@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -66,7 +65,7 @@ const EmailSetup: React.FC<EmailSetupProps> = ({ onSetupComplete, initialConfig 
       };
       
       // Configure the email service
-      emailService.configure(emailConfig);
+      emailService.saveConfig(emailConfig);
       
       toast({
         title: "Email configured",

@@ -14,7 +14,8 @@ import {
   HelpCircle,
   Search,
   Settings,
-  Info
+  Info,
+  ListTodo
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -141,12 +142,21 @@ const AppLayout: React.FC<AppLayoutProps> = ({
               </Button>
               
               <Button 
-                variant={activeTab === "privacy-scan" ? "default" : "ghost"} 
+                variant={activeTab === "privacy" ? "default" : "ghost"} 
                 className="w-full justify-start" 
-                onClick={() => handleTabChange("privacy-scan")}
+                onClick={() => handleTabChange("privacy")}
               >
                 <Shield className="mr-2 h-4 w-4" />
-                {t('privacy-scan')}
+                {t('privacy')}
+              </Button>
+              
+              <Button 
+                variant={activeTab === "requests" ? "default" : "ghost"} 
+                className="w-full justify-start" 
+                onClick={() => handleTabChange("requests")}
+              >
+                <ListTodo className="mr-2 h-4 w-4" />
+                {t('requests')}
               </Button>
               
               <Button 
