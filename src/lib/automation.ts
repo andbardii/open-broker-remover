@@ -1,6 +1,6 @@
-import { AutomationConfig, FormField, AutomationResult, BrokerCategory, RemovalProgress } from './types';
+import { DataBroker, EmailConfig, AutomationConfig, FormField, AutomationResult, RemovalProgress, BrokerCategory } from './types';
 import { securityService } from './security';
-import { db } from './database';
+import { dbService } from './database';
 
 // Define request metadata interface
 interface RequestMetadata {
@@ -54,6 +54,11 @@ const ALLOWED_DOMAINS = [
  * URL validation and sanitization
  */
 function validateAndSanitizeUrl(url: string): string | null {
+  if (!url || typeof url !== 'string') {
+    console.error('Invalid URL: URL must be a non-empty string');
+    return null;
+  }
+
   try {
     // Parse the URL to validate its format
     const parsedUrl = new URL(url);
@@ -64,8 +69,14 @@ function validateAndSanitizeUrl(url: string): string | null {
       return null;
     }
     
-    // Extract the domain
+    // Extract and validate the domain
     const domain = parsedUrl.hostname.toLowerCase();
+    
+    // Check for IP addresses (not allowed)
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(domain)) {
+      console.error('IP addresses are not allowed');
+      return null;
+    }
     
     // Check if domain is allowed
     const isAllowed = ALLOWED_DOMAINS.some(allowedDomain => 
@@ -76,42 +87,32 @@ function validateAndSanitizeUrl(url: string): string | null {
       console.error(`Domain not in whitelist: ${domain}`);
       return null;
     }
-    
-    // Return the sanitized URL
-    return parsedUrl.toString();
-  } catch (error) {
-    console.error('URL validation error:', error);
-    return null;
-  }
-}
 
-function sanitizeUrl(url: string): string {
-  try {
-    // Try to parse the URL to validate it
-    const parsedUrl = new URL(url);
-    
-    // Only allow http and https protocols
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      throw new Error('Invalid protocol');
-    }
-
-    // Remove any username/password from the URL
+    // Remove any username/password
     parsedUrl.username = '';
     parsedUrl.password = '';
 
     // Remove fragments
     parsedUrl.hash = '';
 
-    // Encode pathname and search parameters
-    parsedUrl.pathname = encodeURI(parsedUrl.pathname);
-    
+    // Encode pathname
+    parsedUrl.pathname = parsedUrl.pathname
+      .split('/')
+      .map(segment => encodeURIComponent(segment))
+      .join('/');
+
     // Properly encode search parameters
-    const searchParams = new URLSearchParams(parsedUrl.search);
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of new URLSearchParams(parsedUrl.search)) {
+      searchParams.append(encodeURIComponent(key), encodeURIComponent(value));
+    }
     parsedUrl.search = searchParams.toString();
 
+    // Return the fully sanitized URL
     return parsedUrl.toString();
   } catch (error) {
-    throw new Error('Invalid URL');
+    console.error('URL validation error:', error);
+    return null;
   }
 }
 
@@ -230,8 +231,10 @@ class AutomationService {
   // Process automated request to a data broker
   async processBrokerRequest(requestId: string, userEmail: string): Promise<AutomationResult> {
     try {
-      // Get the request details
-      const request = await db.getRequestById(requestId);
+      // Get all requests and find the one we need
+      const requests = await dbService.getRequests();
+      const request = requests.find(r => r.id === requestId);
+      
       if (!request) {
         return {
           success: false,
@@ -278,9 +281,10 @@ class AutomationService {
       metadata.progress = removalProgress;
       
       // Update the request with initial progress
-      await db.updateRequest(requestId, {
+      await dbService.updateRequest(requestId, {
         status: 'sent',
-        metadata: JSON.stringify(metadata)
+        metadata: JSON.stringify(metadata),
+        dateUpdated: new Date().toISOString()
       });
 
       // Simulate form detection step
@@ -289,8 +293,9 @@ class AutomationService {
       removalProgress.currentStep = 2;
       metadata.progress = removalProgress;
       
-      await db.updateRequest(requestId, {
-        metadata: JSON.stringify(metadata)
+      await dbService.updateRequest(requestId, {
+        metadata: JSON.stringify(metadata),
+        dateUpdated: new Date().toISOString()
       });
       
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -300,8 +305,9 @@ class AutomationService {
       removalProgress.steps[1].completionTime = new Date().toISOString();
       metadata.progress = removalProgress;
       
-      await db.updateRequest(requestId, {
-        metadata: JSON.stringify(metadata)
+      await dbService.updateRequest(requestId, {
+        metadata: JSON.stringify(metadata),
+        dateUpdated: new Date().toISOString()
       });
 
       // Prepare the form fields based on broker type
@@ -313,8 +319,9 @@ class AutomationService {
       removalProgress.currentStep = 3;
       metadata.progress = removalProgress;
       
-      await db.updateRequest(requestId, {
-        metadata: JSON.stringify(metadata)
+      await dbService.updateRequest(requestId, {
+        metadata: JSON.stringify(metadata),
+        dateUpdated: new Date().toISOString()
       });
       
       // Simulate the form submission
@@ -329,8 +336,9 @@ class AutomationService {
         removalProgress.steps[2].notes = formResult.message;
         
         metadata.progress = removalProgress;
-        await db.updateRequest(requestId, {
-          metadata: JSON.stringify(metadata)
+        await dbService.updateRequest(requestId, {
+          metadata: JSON.stringify(metadata),
+          dateUpdated: new Date().toISOString()
         });
         
         return {
@@ -346,8 +354,9 @@ class AutomationService {
       removalProgress.currentStep = 4;
       metadata.progress = removalProgress;
       
-      await db.updateRequest(requestId, {
-        metadata: JSON.stringify(metadata)
+      await dbService.updateRequest(requestId, {
+        metadata: JSON.stringify(metadata),
+        dateUpdated: new Date().toISOString()
       });
       
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -362,36 +371,31 @@ class AutomationService {
       removalProgress.currentStep = 5;
       
       // Schedule a re-verification based on broker difficulty
-      const verificationDate = this.scheduleReverification(metadata.difficulty as string);
-      removalProgress.steps[4].notes = `Scheduled re-verification for ${verificationDate.toLocaleDateString()}`;
+      const reverificationDate = this.scheduleReverification(metadata.difficulty as string);
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Complete the confirmation step
+      // Complete the final step
       removalProgress.steps[4].status = 'completed';
       removalProgress.steps[4].completionTime = new Date().toISOString();
       removalProgress.completedAt = new Date().toISOString();
-      
       metadata.progress = removalProgress;
-      metadata.processedAt = new Date().toISOString();
       
       // Update the request with completed status
-      await db.updateRequest(requestId, {
+      await dbService.updateRequest(requestId, {
         status: 'responded',
         metadata: JSON.stringify(metadata),
-        responseContent: `Automated removal request processed. A follow-up verification has been scheduled for ${verificationDate.toLocaleDateString()}.`
+        dateUpdated: new Date().toISOString()
       });
       
       return {
         success: true,
-        message: 'Automated removal request completed successfully',
+        message: `Successfully processed request. Next verification scheduled for ${reverificationDate.toISOString()}`,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Error in processBrokerRequest:', error);
+      console.error('Error processing broker request:', error);
       return {
         success: false,
-        message: `Error processing request: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
         timestamp: new Date().toISOString()
       };
     }

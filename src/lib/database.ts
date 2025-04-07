@@ -25,11 +25,17 @@ class DatabaseService {
     return parsed;
   }
 
-  private validateArrayInput<T>(arr: T[]): T[] {
-    if (!Array.isArray(arr) || arr.length > this.MAX_BATCH_SIZE) {
-      throw new Error(`Invalid array input: must be an array with length <= ${this.MAX_BATCH_SIZE}`);
+  private validateArrayInput<T>(array: T[]): T[] {
+    if (!Array.isArray(array)) {
+      throw new Error('Input must be an array');
     }
-    return arr;
+    if (array.length === 0) {
+      throw new Error('Array cannot be empty');
+    }
+    if (array.length > 1000) {
+      throw new Error('Array size exceeds maximum limit of 1000');
+    }
+    return array;
   }
 
   private async initializeDatabase() {
@@ -227,72 +233,95 @@ class DatabaseService {
     }
   }
 
+  private validatePaginationParams(page: number, pageSize: number): void {
+    if (!Number.isInteger(page) || page < 0) {
+      throw new Error('Page must be a non-negative integer');
+    }
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+      throw new Error('Page size must be an integer between 1 and 100');
+    }
+  }
+
   public async getRequests(page = 0, pageSize = 50): Promise<DataRequest[]> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
-      // Validate pagination parameters
-      const validatedPage = this.validateNumericInput(page, Number.MAX_SAFE_INTEGER);
-      const validatedPageSize = this.validateNumericInput(pageSize, this.MAX_PAGE_SIZE);
+      this.validatePaginationParams(page, pageSize);
+      const offset = page * pageSize;
 
-      const offset = validatedPage * validatedPageSize;
-
-      const requests = await this.db.all<DataRequest[]>(
+      const rows = await this.db.all(
         'SELECT * FROM requests ORDER BY dateCreated DESC LIMIT ? OFFSET ?',
-        [validatedPageSize, offset]
+        [pageSize, offset]
       );
 
-      return requests || [];
+      return rows.map(row => ({
+        id: row.id,
+        status: row.status,
+        brokerName: row.brokerName,
+        userEmail: row.userEmail,
+        responseContent: row.responseContent,
+        metadata: row.metadata,
+        dateCreated: row.dateCreated,
+        dateUpdated: row.dateUpdated
+      }));
     } catch (error) {
       logger.error('Error getting requests:', error);
       throw error;
     }
   }
 
-  public async createRequest(request: Partial<DataRequest>): Promise<DataRequest> {
+  public async createRequest(request: Partial<DataRequest>): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
     try {
+      const id = crypto.randomUUID();
       const now = new Date().toISOString();
-      const newRequest: DataRequest = {
-        id: crypto.randomUUID(),
-        brokerName: request.brokerName || '',
-        status: request.status || 'pending',
-        userEmail: request.userEmail || '',
-        dateCreated: now,
-        dateUpdated: now,
-        responseContent: request.responseContent,
-        metadata: request.metadata
-      };
 
       await this.db.run(
-        'INSERT INTO requests (id, brokerName, status, userEmail, responseContent, metadata, dateCreated, dateUpdated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [newRequest.id, newRequest.brokerName, newRequest.status, newRequest.userEmail, newRequest.responseContent, newRequest.metadata, newRequest.dateCreated, newRequest.dateUpdated]
+        `INSERT INTO requests (
+          id, status, brokerName, userEmail, responseContent, metadata, dateCreated, dateUpdated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          request.status || 'pending',
+          request.brokerName,
+          request.userEmail,
+          request.responseContent,
+          request.metadata,
+          now,
+          now
+        ]
       );
 
-      return newRequest;
+      return id;
     } catch (error) {
       logger.error('Error creating request:', error);
       throw error;
     }
   }
 
-  public async createRequests(requests: Partial<DataRequest>[]): Promise<DataRequest[]> {
-    // Validate input array
-    const validatedRequests = this.validateArrayInput(requests);
-    
-    const results: DataRequest[] = [];
-    
-    // Process in chunks to prevent memory issues
-    const chunkSize = 100;
-    for (let i = 0; i < validatedRequests.length; i += chunkSize) {
-      const chunk = validatedRequests.slice(i, i + chunkSize);
-      const promises = chunk.map(request => this.createRequest(request));
-      const chunkResults = await Promise.all(promises);
-      results.push(...chunkResults);
-    }
+  public async createRequests(requests: Partial<DataRequest>[]): Promise<string[]> {
+    if (!this.db) throw new Error('Database not initialized');
 
-    return results;
+    try {
+      const validatedRequests = this.validateArrayInput(requests);
+      const chunkSize = 100;
+      const ids: string[] = [];
+
+      // Process requests in chunks to prevent memory issues
+      for (let i = 0; i < validatedRequests.length; i += chunkSize) {
+        const chunk = validatedRequests.slice(i, i + chunkSize);
+        const chunkIds = await Promise.all(
+          chunk.map(request => this.createRequest(request))
+        );
+        ids.push(...chunkIds);
+      }
+
+      return ids;
+    } catch (error) {
+      logger.error('Error creating requests:', error);
+      throw error;
+    }
   }
 
   public async updateRequest(id: string, updates: Partial<DataRequest>): Promise<boolean> {
@@ -300,8 +329,23 @@ class DatabaseService {
 
     try {
       const result = await this.db.run(
-        'UPDATE requests SET status = ?, updatedAt = ? WHERE id = ?',
-        [updates.status, Date.now(), id]
+        `UPDATE requests SET 
+          status = COALESCE(?, status),
+          brokerName = COALESCE(?, brokerName),
+          userEmail = COALESCE(?, userEmail),
+          responseContent = COALESCE(?, responseContent),
+          metadata = COALESCE(?, metadata),
+          dateUpdated = ?
+        WHERE id = ?`,
+        [
+          updates.status,
+          updates.brokerName,
+          updates.userEmail,
+          updates.responseContent,
+          updates.metadata,
+          updates.dateUpdated || new Date().toISOString(),
+          id
+        ]
       );
 
       return result.changes > 0;
