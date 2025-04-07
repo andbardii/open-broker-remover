@@ -9,6 +9,7 @@ import { encryptionService } from './encryption';
 import { backupRouter } from './routes/backup';
 import { config } from './config';
 import { logger } from './logger';
+import fs from 'fs';
 
 // Create Express server
 const app = express();
@@ -372,6 +373,42 @@ app.post('/api/encryption/import-key', strictLimiter, async (req, res) => {
 
 // Apply strict rate limiting to sensitive operations
 app.use('/api/backups', strictLimiter, backupRouter);
+
+// Add data deletion endpoint
+app.post('/api/settings/delete-all-data', strictLimiter, async (req, res) => {
+  try {
+    // Delete database
+    if (fs.existsSync(path.join(config.storage.dataDir, 'open-broker-remover.db'))) {
+      await fs.promises.unlink(path.join(config.storage.dataDir, 'open-broker-remover.db'));
+    }
+
+    // Delete backups
+    if (fs.existsSync(config.storage.backupDir)) {
+      const files = await fs.promises.readdir(config.storage.backupDir);
+      await Promise.all(files.map(file => 
+        fs.promises.unlink(path.join(config.storage.backupDir, file))
+      ));
+      await fs.promises.rmdir(config.storage.backupDir);
+    }
+
+    // Delete logs
+    if (fs.existsSync(config.storage.logDir)) {
+      const files = await fs.promises.readdir(config.storage.logDir);
+      await Promise.all(files.map(file => 
+        fs.promises.unlink(path.join(config.storage.logDir, file))
+      ));
+      await fs.promises.rmdir(config.storage.logDir);
+    }
+
+    // Reset encryption service
+    await encryptionService.reset();
+
+    res.json({ success: true, message: 'All data has been deleted' });
+  } catch (error) {
+    logger.error('Error deleting all data:', error);
+    res.status(500).json({ error: 'Failed to delete all data' });
+  }
+});
 
 // Add this immediately before the last route
 app.use('/backup', backupRouter);

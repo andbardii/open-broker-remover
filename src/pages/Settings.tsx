@@ -11,12 +11,24 @@ import { emailService } from '@/lib/email';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { AppConfig, developerService } from '@/lib/developer';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Separator } from '@/components/ui/separator';
 
 interface SettingsProps {
-  onTabChange: (tab: string) => void;
+  onTabChange?: (tab: string) => void;
 }
 
 const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
@@ -25,6 +37,8 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
   const [appConfig, setAppConfig] = useState<string>('');
   const [appConfigError, setAppConfigError] = useState<string | null>(null);
   const { t } = useLanguage();
+  const { toast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch configurations on component mount or tab switch
   useEffect(() => {
@@ -128,14 +142,45 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
     }
   };
 
+  const handleDeleteAllData = async () => {
+    try {
+      setIsDeleting(true);
+      const response = await fetch('/api/settings/delete-all-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete data');
+      }
+
+      toast({
+        title: t('success'),
+        description: t('data-deleted-successfully'),
+        variant: 'default',
+      });
+
+      // Reload the app after successful deletion
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      toast({
+        title: t('error'),
+        description: t('error-deleting-data'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <>
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold tracking-tight">{t('settings')}</h2>
-        <p className="text-muted-foreground">
-          {t('settings-description')}
-        </p>
-      </div>
+    <div className="container mx-auto p-4 space-y-4">
+      <h1 className="text-2xl font-bold mb-4">{t('settings')}</h1>
 
       <Card>
         <CardHeader>
@@ -268,7 +313,47 @@ const Settings: React.FC<SettingsProps> = ({ onTabChange }) => {
           </Tabs>
         </CardContent>
       </Card>
-    </>
+
+      <Separator className="my-6" />
+
+      {/* Delete All Data Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('danger-zone')}</CardTitle>
+          <CardDescription>{t('danger-zone-description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                className="w-full sm:w-auto"
+                disabled={isDeleting}
+              >
+                {isDeleting ? t('deleting') : t('delete-all-data')}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('confirm-deletion')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('delete-all-data-warning')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAllData}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {t('confirm-delete')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
