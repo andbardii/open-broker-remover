@@ -236,6 +236,27 @@ class EncryptionService {
       return false;
     }
   }
+
+  /**
+   * Reset the encryption service state
+   */
+  async reset(): Promise<void> {
+    this.encryptionKey = null;
+    this.initialized = false;
+    
+    // Delete key files if they exist
+    try {
+      if (await this.keyExists()) {
+        await fs.promises.unlink(KEY_FILE_PATH);
+      }
+      if (fs.existsSync(KEY_FILE_TEST_PATH)) {
+        await fs.promises.unlink(KEY_FILE_TEST_PATH);
+      }
+    } catch (error) {
+      console.error('Error deleting encryption files:', error);
+      throw error;
+    }
+  }
 }
 
 // Export a singleton instance
